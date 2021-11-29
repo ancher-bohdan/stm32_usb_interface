@@ -124,6 +124,7 @@ static uint8_t  usbd_audio_DataIn     (void *pdev, uint8_t epnum);
 static uint8_t  usbd_audio_DataOut    (void *pdev, uint8_t epnum);
 static uint8_t  usbd_audio_SOF        (void *pdev);
 static uint8_t  usbd_audio_OUT_Incplt (void  *pdev);
+static uint8_t  usbd_audio_IN_Incplt (void  *pdev);
 
 /*********************************************
    AUDIO Requests management functions
@@ -144,6 +145,7 @@ uint8_t  AudioCtl[64];
 uint8_t  AudioCtlCmd = 0;
 uint32_t AudioCtlLen = 0;
 uint8_t  AudioCtlUnit = 0;
+uint8_t PlayFlag = 1;
 
 static __IO uint32_t  usbd_audio_AltSet = 0;
 static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE];
@@ -159,7 +161,7 @@ USBD_Class_cb_TypeDef  AUDIO_cb =
   usbd_audio_DataIn,
   usbd_audio_DataOut,
   usbd_audio_SOF,
-  NULL,
+  usbd_audio_IN_Incplt,
   usbd_audio_OUT_Incplt,   
   USBD_audio_GetCfgDesc,
 #ifdef USB_OTG_HS_CORE  
@@ -323,22 +325,6 @@ static uint8_t  Init         (uint32_t AudioFreq,
                               uint32_t Volume, 
                               uint32_t options)
 {
-  static uint32_t Initialized = 0;
-  
-  /* Check if the low layer has already been initialized */
-  if (Initialized == 0)
-  {
-    if (EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, Volume, AudioFreq) != 0)
-    {
-      return USBD_FAIL;
-    }
-    
-    um_handle_init(Audio_MAL_Play, EVAL_AUDIO_PauseResume);
-
-    /* Set the Initialization flag to prevent reinitializing the interface again */
-    Initialized = 1;
-  }
-
   return USBD_OK;
 }
 
@@ -371,21 +357,9 @@ static uint8_t  usbd_audio_Init (void  *pdev,
 {  
   /* Open EP OUT */
   DCD_EP_Open(pdev,
-              AUDIO_OUT_EP,
-              AUDIO_OUT_PACKET,
+              AUDIO_IN_EP,
+              32,
               USB_OTG_EP_ISOC);
-
-  /* Initialize the Audio output Hardware layer */
-  if (Init(USBD_AUDIO_FREQ, DEFAULT_VOLUME, 0) != USBD_OK)
-  {
-    return USBD_FAIL;
-  }
-    
-  /* Prepare Out endpoint to receive audio data */
-  DCD_EP_PrepareRx(pdev,
-                   AUDIO_OUT_EP,
-                   get_um_buffer_handle()->um_start->um_buf,                        
-                   AUDIO_OUT_PACKET);  
   
   return USBD_OK;
 }
@@ -400,10 +374,42 @@ static uint8_t  usbd_audio_Init (void  *pdev,
 static uint8_t  usbd_audio_DeInit (void  *pdev, 
                                    uint8_t cfgidx)
 { 
-  DCD_EP_Close (pdev , AUDIO_OUT_EP);
+  DCD_EP_Close (pdev , AUDIO_IN_EP);
   
   return USBD_OK;
 }
+
+uint16_t test_square_signal[112] = 
+{
+  1000, 1000, 1000, 1000,
+  0, 0, 0, 0, 
+    1000, 1000, 1000, 1000,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0, 
+    100, 100, 100, 100,
+  0, 0, 0, 0
+};
 
 /**
   * @brief  usbd_audio_Setup
@@ -468,6 +474,16 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
       if ((uint8_t)(req->wValue) < AUDIO_TOTAL_IF_NUM)
       {
         usbd_audio_AltSet = (uint8_t)(req->wValue);
+        if (usbd_audio_AltSet == 0)
+        {
+          PlayFlag = 0;
+          DCD_EP_Flush (pdev,AUDIO_IN_EP);
+        }
+        else
+        {
+           DCD_EP_Tx(pdev, AUDIO_IN_EP, (uint8_t *)test_square_signal, 32);
+          PlayFlag = 1;
+        }
       }
       else
       {
@@ -515,6 +531,10 @@ static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
   */
 static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
 {
+  DCD_EP_Flush(pdev, AUDIO_IN_EP);
+
+  DCD_EP_Tx(pdev, AUDIO_IN_EP, (uint8_t *)test_square_signal, 32);
+
   return USBD_OK;
 }
 
@@ -525,25 +545,8 @@ static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
   * @param  epnum: endpoint number
   * @retval status
   */
-__IO uint32_t DataOutCounter = 0;
 static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
-{     
-  DataOutCounter++;
-  if (epnum == AUDIO_OUT_EP)
-  {
-    uint8_t *next = um_handle_enqueue();
-
-    /* Toggle the frame index */  
-    ((USB_OTG_CORE_HANDLE*)pdev)->dev.out_ep[epnum].even_odd_frame = 
-      (((USB_OTG_CORE_HANDLE*)pdev)->dev.out_ep[epnum].even_odd_frame)? 0:1;
-
-    /* Prepare Out endpoint to receive next audio packet */
-    DCD_EP_PrepareRx(pdev,
-                  AUDIO_OUT_EP,
-                  next,
-                  AUDIO_OUT_PACKET);
-  }
-  
+{  
   return USBD_OK;
 }
 
@@ -566,6 +569,11 @@ static uint8_t  usbd_audio_SOF (void *pdev)
   * @retval status
   */
 static uint8_t  usbd_audio_OUT_Incplt (void  *pdev)
+{
+  return USBD_OK;
+}
+
+static uint8_t  usbd_audio_IN_Incplt (void  *pdev)
 {
   return USBD_OK;
 }
