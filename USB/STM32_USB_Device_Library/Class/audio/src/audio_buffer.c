@@ -5,14 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define NODE_SUBBUF_COUNT   (UM_NODE_COUNT * NUMBER_OF_USB_FRAMES_IN_UM_NODE)
-
-static uint8_t __um_buffer[UM_NODE_COUNT][AUDIO_OUT_PACKET * NUMBER_OF_USB_FRAMES_IN_UM_NODE];
-static uint8_t congestion_avoidance_bucket[AUDIO_OUT_PACKET];
-
-static struct um_buffer_handle um_handle;
-
-static struct um_node** _alloc_um_nodes(struct um_node **prev)
+static struct um_node** _alloc_um_nodes(struct um_buffer_handle *handle, struct um_node **prev)
 {
     static int recursion_count = 0;
 
@@ -21,18 +14,27 @@ static struct um_node** _alloc_um_nodes(struct um_node **prev)
     if(*prev == NULL)
         return NULL;
 
-    (*prev)->um_buf = __um_buffer[recursion_count];
+    (*prev)->um_buf = handle->congestion_avoidance_bucket + (handle->um_usb_frame_in_node * handle->um_usb_packet_size * recursion_count);
 
     (*prev)->um_node_state = UM_NODE_STATE_FREE;
     (*prev)->um_node_offset = 0;
 
-    if(recursion_count != (UM_NODE_COUNT - 1)) {
+    if(recursion_count != (handle->um_number_of_nodes - 1)) {
         recursion_count++;
-        return _alloc_um_nodes(&((*prev)->next));
+        return _alloc_um_nodes(handle, &((*prev)->next));
     } else {
         recursion_count = 0;
         return prev;
     }
+}
+
+static void _free_um_nodes(struct um_node *current, struct um_node *start)
+{
+    if(current != start)
+    {
+        _free_um_nodes(current->next, start);
+    }
+    free(current);
 }
 
 static uint8_t get_congestion_window(struct um_node *um_node_write)
@@ -68,171 +70,210 @@ static void copy_samples_to_listener(struct um_buffer_listener *listener, struct
     }
 }
 
-static void send_sample_to_registered_listeners(struct usb_sample_struct *usb_samples, uint8_t size)
+static void send_sample_to_registered_listeners(struct um_buffer_handle *handle, struct usb_sample_struct *usb_samples, uint8_t size)
 {
     uint8_t i = 0;
     for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
     {
-        if(um_handle.listeners[i].samples_required != 0)
+        if(handle->listeners[i].samples_required != 0)
         {
-            copy_samples_to_listener(&um_handle.listeners[i], usb_samples, size);
+            copy_samples_to_listener(&(handle->listeners[i]), usb_samples, size);
         }
     }
 }
 
-static void flush_all_listeners()
+static void flush_all_listeners(struct um_buffer_handle *handle)
 {
     uint8_t i = 0;
     for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
     {
-        if(um_handle.listeners[i].samples_required != 0)
+        if(handle->listeners[i].samples_required != 0)
         {
-            memset(um_handle.listeners[i].dst + um_handle.listeners[i].dst_offset, 0, um_handle.listeners[i].samples_required);
-            um_handle.listeners[i].listener_finish(um_handle.listeners[i].args);
+            memset(handle->listeners[i].dst + handle->listeners[i].dst_offset, 0, handle->listeners[i].samples_required);
+            handle->listeners[i].listener_finish(handle->listeners[i].args);
 
-            um_handle.listeners[i].dst = NULL;
-            um_handle.listeners[i].dst_offset = 0;
-            um_handle.listeners[i].listener_finish = NULL;
-            um_handle.listeners[i].args = NULL;
-            um_handle.listeners[i].samples_required = 0;
+            handle->listeners[i].dst = NULL;
+            handle->listeners[i].dst_offset = 0;
+            handle->listeners[i].listener_finish = NULL;
+            handle->listeners[i].args = NULL;
+            handle->listeners[i].samples_required = 0;
         }
     }
 }
 
-void um_handle_init(um_play_fnc play, um_pause_resume_fnc pause_resume )
+int um_handle_init( struct um_buffer_handle *handle,
+                    uint32_t usb_packet_size,
+                    uint32_t usb_frame_in_um_node_count,
+                    uint32_t um_node_count,
+                    um_play_fnc play, um_pause_resume_fnc pause_resume )
 {
-    um_handle.um_read = *_alloc_um_nodes(&(um_handle.um_start));
-    if(um_handle.um_read == NULL)
+    int i = 0;
+
+    if(handle == NULL)
     {
-        /*
-        Out of heap memory error
-        As a handle it is endless loop here so far... 
-          */
-        while(1){ }
+        return UM_EARGS;
     }
 
-    um_handle.um_read->next = um_handle.um_start;
-    um_handle.um_read = um_handle.um_start;
-    um_handle.um_write = um_handle.um_start;
-    um_handle.um_buffer_state = UM_BUFFER_STATE_INIT;
-    um_handle.um_abs_offset = 0;
-    um_handle.um_buffer_flags = 0;
+    handle->um_usb_packet_size = usb_packet_size;
+    handle->um_usb_frame_in_node = usb_frame_in_um_node_count;
+    handle->um_number_of_nodes = um_node_count;
 
-    um_handle.um_play = play;
-    um_handle.um_pause_resume = pause_resume;
+    // allocate memory for whole internal buffer; store pointer to it here temporary
+    handle->congestion_avoidance_bucket = (uint8_t *)malloc(usb_packet_size * usb_frame_in_um_node_count * um_node_count);
+    if(handle->congestion_avoidance_bucket == NULL)
+    {
+        return UM_ENOMEM;
+    }
+
+    handle->um_read = *_alloc_um_nodes(handle, &(handle->um_start));
+    if(handle->um_read == NULL)
+    {
+        return UM_ENOMEM;
+    }
+
+    handle->um_read->next = handle->um_start;
+    handle->um_read = handle->um_start;
+    handle->um_write = handle->um_start;
+
+    //main buffer pointer was copied inside um_start struct; allocate new memory for CA algorithm
+    handle->congestion_avoidance_bucket = (uint8_t *)malloc(handle->um_usb_packet_size);
+    if(handle->congestion_avoidance_bucket == NULL)
+    {
+        return UM_ENOMEM;
+    }
+
+    handle->um_buffer_state = UM_BUFFER_STATE_INIT;
+    handle->um_abs_offset = 0;
+    handle->um_buffer_flags = 0;
+
+    handle->um_play = play;
+    handle->um_pause_resume = pause_resume;
+
+    for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
+    {
+        handle->listeners[i].dst = NULL;
+        handle->listeners[i].dst_offset = 0;
+        handle->listeners[i].listener_finish = NULL;
+        handle->listeners[i].args = NULL;
+        handle->listeners[i].samples_required = 0;
+    }
+
+    return UM_EOK;
 }
 
-uint8_t *um_handle_enqueue()
+uint8_t *um_handle_enqueue(struct um_buffer_handle *handle)
 {
     uint8_t cw;
     uint8_t *result = NULL;
+    uint32_t node_subbuf_count = handle->um_usb_frame_in_node * handle->um_number_of_nodes;
 
-    if((um_handle.um_write->um_node_offset == 0) && !GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
+    if((handle->um_write->um_node_offset == 0) && !GET_HALF_USB_FRAME_FLAG(handle->um_buffer_flags))
     {
-        if(um_handle.um_write->um_node_state != UM_NODE_STATE_FREE)
+        if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
         {
             /* Buffer overflow
             shouldn`t be here
-            as a handle - endless loop
             */
-           while(1) {}
+           return result;
         }
-        um_handle.um_write->um_node_state = UM_NODE_STATE_USB;
+        handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
     }
 
-    if(!GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
+    if(!GET_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags))
     {
-        send_sample_to_registered_listeners((struct usb_sample_struct *)(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET)), AUDIO_OUT_PACKET >> 2);
-        um_handle.um_abs_offset = (um_handle.um_abs_offset + 1) % NODE_SUBBUF_COUNT;
+        send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->um_start->um_buf + (handle->um_abs_offset * handle->um_usb_packet_size)), handle->um_usb_packet_size >> 2);
+        handle->um_abs_offset = (handle->um_abs_offset + 1) % node_subbuf_count;
 
-        if(++(um_handle.um_write->um_node_offset) == NUMBER_OF_USB_FRAMES_IN_UM_NODE)
+        if(++(handle->um_write->um_node_offset) == handle->um_usb_frame_in_node)
         {
-            um_handle.um_write->um_node_offset = 0;
-            um_handle.um_write->um_node_state = UM_NODE_STATE_READY;
-            um_handle.um_write = um_handle.um_write->next;
+            handle->um_write->um_node_offset = 0;
+            handle->um_write->um_node_state = UM_NODE_STATE_READY;
+            handle->um_write = handle->um_write->next;
         }
-        result = um_handle.um_write->um_buf + (um_handle.um_write->um_node_offset * AUDIO_OUT_PACKET);
+        result = handle->um_write->um_buf + (handle->um_write->um_node_offset * handle->um_usb_packet_size);
     }
     else /*CONGESTION AVOIDANCE in progress... */
     {
         uint8_t i = 0, j = 0;
 
-        send_sample_to_registered_listeners((struct usb_sample_struct *)(congestion_avoidance_bucket), AUDIO_OUT_PACKET >> 2);
+        send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->congestion_avoidance_bucket), handle->um_usb_packet_size >> 2);
 
-        for(i = 0; i < AUDIO_OUT_PACKET; i+=8)
+        for(i = 0; i < handle->um_usb_packet_size; i+=8)
         {
-            memcpy(um_handle.um_start->um_buf + (um_handle.um_abs_offset * AUDIO_OUT_PACKET) + ((AUDIO_OUT_PACKET >> 1) * GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags)) + j, congestion_avoidance_bucket + i, 4);
+            memcpy(handle->um_start->um_buf + (handle->um_abs_offset * handle->um_usb_packet_size) + ((handle->um_usb_packet_size >> 1) * GET_HALF_USB_FRAME_FLAG(handle->um_buffer_flags)) + j, handle->congestion_avoidance_bucket + i, 4);
             j+=4;
         }
 
-        if(GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
+        if(GET_HALF_USB_FRAME_FLAG(handle->um_buffer_flags))
         {
-            um_handle.um_abs_offset = (um_handle.um_abs_offset + 1) % NODE_SUBBUF_COUNT;
+            handle->um_abs_offset = (handle->um_abs_offset + 1) % node_subbuf_count;
 
-            if(++(um_handle.um_write->um_node_offset) == NUMBER_OF_USB_FRAMES_IN_UM_NODE)
+            if(++(handle->um_write->um_node_offset) == handle->um_usb_frame_in_node)
             {
-                um_handle.um_write->um_node_offset = 0;
-                um_handle.um_write->um_node_state = UM_NODE_STATE_READY;
-                um_handle.um_write = um_handle.um_write->next;
+                handle->um_write->um_node_offset = 0;
+                handle->um_write->um_node_state = UM_NODE_STATE_READY;
+                handle->um_write = handle->um_write->next;
             }
         }
 
-        TOGGLE_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags);
-        result = congestion_avoidance_bucket;
+        TOGGLE_HALF_USB_FRAME_FLAG(handle->um_buffer_flags);
+        result = handle->congestion_avoidance_bucket;
     }
 
-    cw = get_congestion_window(um_handle.um_write->next);
+    cw = get_congestion_window(handle->um_write->next);
 
-    if(GET_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags))
+    if(GET_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags))
     {
-        if((cw == CW_UPPER_BOUND) && !GET_HALF_USB_FRAME_FLAG(um_handle.um_buffer_flags))
+        if((cw == CW_UPPER_BOUND) && !GET_HALF_USB_FRAME_FLAG(handle->um_buffer_flags))
         {
-            TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
-            result = um_handle.um_write->um_buf + (um_handle.um_write->um_node_offset * AUDIO_OUT_PACKET);
+            TOGGLE_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags);
+            result = handle->um_write->um_buf + (handle->um_write->um_node_offset * handle->um_usb_packet_size);
         }
     }
     else
     {
         if(cw == CW_LOWER_BOUND)
         {
-            TOGGLE_CONGESTION_AVOIDANCE_FLAG(um_handle.um_buffer_flags);
-            result = congestion_avoidance_bucket;
+            TOGGLE_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags);
+            result = handle->congestion_avoidance_bucket;
         }
     }
 
-    if(um_handle.um_buffer_state != UM_BUFFER_STATE_PLAY)
+    if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
-        if(um_handle.um_abs_offset == (NODE_SUBBUF_COUNT >> 1))
+        if(handle->um_abs_offset == (node_subbuf_count >> 1))
         {
-            um_handle.um_start->um_node_state = UM_NODE_STATE_I2S;
-            if(um_handle.um_buffer_state == UM_BUFFER_STATE_INIT)
+            handle->um_start->um_node_state = UM_NODE_STATE_READER;
+            if(handle->um_buffer_state == UM_BUFFER_STATE_INIT)
             {
-                um_handle.um_play((uint32_t)um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
+                handle->um_play((uint32_t)handle->um_start->um_buf, (node_subbuf_count * handle->um_usb_packet_size) >> 1);
             }
             else /* UM_BUFFER_STATE_READY */
             {
-                um_handle.um_pause_resume(1, (uint32_t)um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
+                handle->um_pause_resume(1, (uint32_t)handle->um_start->um_buf, (node_subbuf_count * handle->um_usb_packet_size) >> 1);
             }
-            um_handle.um_buffer_state = UM_BUFFER_STATE_PLAY;
+            handle->um_buffer_state = UM_BUFFER_STATE_PLAY;
         }
     }
     return result;
 }
 
-void audio_dma_complete_cb()
+void audio_dma_complete_cb(struct um_buffer_handle *handle)
 {
-    if(um_handle.um_read->um_node_state != UM_NODE_STATE_I2S)
+    uint32_t node_subbuf_count = handle->um_usb_frame_in_node * handle->um_number_of_nodes;
+
+    if(handle->um_read->um_node_state != UM_NODE_STATE_READER)
     {
         /* State machine error */
         while(1) {}
     }
-    um_handle.um_read->um_node_state = UM_NODE_STATE_FREE;
-    um_handle.um_read = um_handle.um_read->next;
+    handle->um_read->um_node_state = UM_NODE_STATE_FREE;
+    handle->um_read = handle->um_read->next;
 
-    switch (um_handle.um_read->um_node_state)
+    switch (handle->um_read->um_node_state)
     {
-    case UM_NODE_STATE_USB:
-        if(um_handle.um_read != um_handle.um_write)
+    case UM_NODE_STATE_WRITER:
+        if(handle->um_read != handle->um_write)
         {
             /* This state may occure, if new buffer node is under 
             USB packet filling, but not finish and no more packet
@@ -245,20 +286,20 @@ void audio_dma_complete_cb()
         }
         // else, same handle as for UM_NODE_STATE_FREE state
     case UM_NODE_STATE_FREE:
-        um_handle.um_pause_resume(0, (uint32_t)um_handle.um_start->um_buf, (NODE_SUBBUF_COUNT * AUDIO_OUT_PACKET) >> 1);
-        um_handle.um_write->um_node_offset = 0;
-        um_handle.um_write->um_node_state = UM_NODE_STATE_FREE;
-        um_handle.um_write = um_handle.um_read = um_handle.um_start;
-        um_handle.um_buffer_state = UM_BUFFER_STATE_READY;
-        um_handle.um_abs_offset = 0;
+        handle->um_pause_resume(0, (uint32_t)handle->um_start->um_buf, (node_subbuf_count * handle->um_usb_packet_size) >> 1);
+        handle->um_write->um_node_offset = 0;
+        handle->um_write->um_node_state = UM_NODE_STATE_FREE;
+        handle->um_write = handle->um_read = handle->um_start;
+        handle->um_buffer_state = UM_BUFFER_STATE_READY;
+        handle->um_abs_offset = 0;
 
-        flush_all_listeners();
+        flush_all_listeners(handle);
         break;
 
     case UM_NODE_STATE_READY:
-        um_handle.um_read->um_node_state = UM_NODE_STATE_I2S;
+        handle->um_read->um_node_state = UM_NODE_STATE_READER;
         break;
-    case UM_NODE_STATE_I2S:
+    case UM_NODE_STATE_READER:
     default:
         /* State machine error */
         while(1) {}
@@ -266,28 +307,18 @@ void audio_dma_complete_cb()
     }
 }
 
-void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size)
-{
-    audio_dma_complete_cb();
-}
-
-void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
-{
-    audio_dma_complete_cb();
-}
-
-void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk, void *arg)
+void um_buffer_handle_register_listener(struct um_buffer_handle *handle, int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk, void *arg)
 {
     uint8_t i = 0;
     for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
     {
-        if(um_handle.listeners[i].samples_required == 0)
+        if(handle->listeners[i].samples_required == 0)
         {
-            um_handle.listeners[i].samples_required = size;
-            um_handle.listeners[i].listener_finish = job_finish_cbk;
-            um_handle.listeners[i].args = arg;
-            um_handle.listeners[i].dst_offset = 0;
-            um_handle.listeners[i].dst = sample;
+            handle->listeners[i].samples_required = size;
+            handle->listeners[i].listener_finish = job_finish_cbk;
+            handle->listeners[i].args = arg;
+            handle->listeners[i].dst_offset = 0;
+            handle->listeners[i].dst = sample;
             return;
         }
     }
@@ -295,7 +326,14 @@ void um_buffer_handle_register_listener(int16_t *sample, uint16_t size, listener
     while(1) { }
 }
 
-struct um_buffer_handle *get_um_buffer_handle()
+void free_um_buffer_handle(struct um_buffer_handle *handle)
 {
-    return &um_handle;
+    uint32_t timeout = 10000;
+
+    while (handle->um_buffer_state == UM_BUFFER_STATE_PLAY && timeout--);
+
+    free(handle->congestion_avoidance_bucket);
+    free(handle->um_start->um_buf);
+    _free_um_nodes(handle->um_start->next, handle->um_start);
+    free(handle);
 }

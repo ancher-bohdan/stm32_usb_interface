@@ -632,6 +632,16 @@ static uint8_t  *USBD_audio_GetCfgDesc (uint8_t speed, uint16_t *length)
   *length = sizeof (usbd_audio_CfgDesc);
   return usbd_audio_CfgDesc;
 }
+
+void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size)
+{
+
+}
+
+void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
+{
+  
+}
 /**
   * @}
   */ 
