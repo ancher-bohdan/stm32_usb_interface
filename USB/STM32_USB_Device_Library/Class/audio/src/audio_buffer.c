@@ -1,5 +1,4 @@
 #include "audio_buffer.h"
-#include "usbd_audio_core.h"
 
 #include <stdint.h>
 #include <string.h>

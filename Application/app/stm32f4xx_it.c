@@ -206,7 +206,7 @@ void DMA1_Stream5_IRQHandler(void)
           DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_TCIF5);
   }
 }
-
+/*
 void DMA1_Stream3_IRQHandler(void)
 {
   if(DMA_GetITStatus(DMA1_Stream3, DMA_IT_HTIF3))
@@ -218,7 +218,7 @@ void DMA1_Stream3_IRQHandler(void)
           DMA_ClearITPendingBit(DMA1_Stream3, DMA_IT_TCIF3);
   }
 }
-
+*/
 void TIM8_TRG_COM_TIM14_IRQHandler(void)
 {
   if (TIM_GetITStatus(TIM14, TIM_IT_CC1) != RESET)

@@ -75,6 +75,8 @@
 #include "usbd_audio_core.h"
 #include "audio_buffer.h"
 
+#include <stdlib.h>
+
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
   * @{
   */
@@ -112,6 +114,9 @@
 /** @defgroup usbd_audio_Private_FunctionPrototypes
   * @{
   */
+
+extern void adc_sampling_wrapper(uint32_t samples, uint32_t size);
+extern uint32_t adc_pause(uint32_t cmd, uint32_t addr, uint32_t size);
 
 /*********************************************
    AUDIO Device library callbacks
@@ -309,41 +314,12 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   * @}
   */ 
 
+static struct um_buffer_handle *in_handle = NULL;
+static uint8_t null_data[AUDIO_IN_PACKET] = { 0 };
+
 /** @defgroup usbd_audio_Private_Functions
   * @{
-  */ 
-
-/**
-  * @brief  Init
-  *         Initialize and configures all required resources for audio play function.
-  * @param  AudioFreq: Startup audio frequency. 
-  * @param  Volume: Startup volume to be set.
-  * @param  options: specific options passed to low layer function.
-  * @retval AUDIO_OK if all operations succeed, AUDIO_FAIL else.
   */
-static uint8_t  Init         (uint32_t AudioFreq, 
-                              uint32_t Volume, 
-                              uint32_t options)
-{
-  return USBD_OK;
-}
-
-/**
-  * @brief  MuteCtl
-  *         Mute or Unmute the audio current output
-  * @param  cmd: can be 0 to unmute, or 1 to mute.
-  * @retval AUDIO_OK if all operations succeed, AUDIO_FAIL else.
-  */
-static uint8_t  MuteCtl      (uint8_t cmd)
-{
-  /* Call low layer mute setting function */  
-  if (EVAL_AUDIO_Mute(cmd) != 0)
-  {
-    return USBD_FAIL;
-  }
-  
-  return USBD_OK;
-}
 
 /**
 * @brief  usbd_audio_Init
@@ -358,8 +334,15 @@ static uint8_t  usbd_audio_Init (void  *pdev,
   /* Open EP OUT */
   DCD_EP_Open(pdev,
               AUDIO_IN_EP,
-              32,
+              AUDIO_IN_PACKET,
               USB_OTG_EP_ISOC);
+  
+  in_handle = (struct um_buffer_handle *)malloc(sizeof(struct um_buffer_handle));
+
+  if(um_handle_init(in_handle, AUDIO_IN_PACKET, 4, 4, adc_sampling_wrapper, adc_pause) != UM_EOK)
+  {
+    return USBD_FAIL;
+  }
   
   return USBD_OK;
 }
@@ -375,41 +358,11 @@ static uint8_t  usbd_audio_DeInit (void  *pdev,
                                    uint8_t cfgidx)
 { 
   DCD_EP_Close (pdev , AUDIO_IN_EP);
+
+  free_um_buffer_handle(in_handle);
   
   return USBD_OK;
 }
-
-uint16_t test_square_signal[112] = 
-{
-  1000, 1000, 1000, 1000,
-  0, 0, 0, 0, 
-    1000, 1000, 1000, 1000,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0, 
-    100, 100, 100, 100,
-  0, 0, 0, 0
-};
 
 /**
   * @brief  usbd_audio_Setup
@@ -476,13 +429,12 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
         usbd_audio_AltSet = (uint8_t)(req->wValue);
         if (usbd_audio_AltSet == 0)
         {
-          PlayFlag = 0;
+          um_handle_in_pause(in_handle);
           DCD_EP_Flush (pdev,AUDIO_IN_EP);
         }
         else
         {
-           DCD_EP_Tx(pdev, AUDIO_IN_EP, (uint8_t *)test_square_signal, 32);
-          PlayFlag = 1;
+          DCD_EP_Tx(pdev, AUDIO_IN_EP, um_handle_in_resume(in_handle), in_handle->um_usb_packet_size);
         }
       }
       else
@@ -503,22 +455,7 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
   * @retval status
   */
 static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
-{ 
-  /* Check if an AudioControl request has been issued */
-  if (AudioCtlCmd == AUDIO_REQ_SET_CUR)
-  {/* In this driver, to simplify code, only SET_CUR request is managed */
-    /* Check for which addressed unit the AudioControl request has been issued */
-    if (AudioCtlUnit == AUDIO_OUT_STREAMING_CTRL)
-    {/* In this driver, to simplify code, only one unit is manage */
-      /* Call the audio interface mute function */
-      MuteCtl(AudioCtl[0]);
-      
-      /* Reset the AudioCtlCmd variable to prevent re-entering this function */
-      AudioCtlCmd = 0;
-      AudioCtlLen = 0;
-    }
-  } 
-  
+{   
   return USBD_OK;
 }
 
@@ -531,9 +468,18 @@ static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
   */
 static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
 {
+  uint8_t *next;
+
   DCD_EP_Flush(pdev, AUDIO_IN_EP);
 
-  DCD_EP_Tx(pdev, AUDIO_IN_EP, (uint8_t *)test_square_signal, 32);
+  next = um_handle_in_dequeue(in_handle);
+
+  if(next == NULL)
+  {
+    next = null_data;
+  }
+
+  DCD_EP_Tx(pdev, AUDIO_IN_EP, next, in_handle->um_usb_packet_size);
 
   return USBD_OK;
 }
@@ -633,14 +579,17 @@ static uint8_t  *USBD_audio_GetCfgDesc (uint8_t speed, uint16_t *length)
   return usbd_audio_CfgDesc;
 }
 
-void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size)
-{
+#include "stm324xg_eval.h"
 
+void ADC_DMAHalfTransfere_Complete()
+{
+  STM_EVAL_LEDToggle(LED1);
+  um_handle_in_cbk(in_handle);
 }
-
-void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
+void ADC_DMATransfere_Complete()
 {
-  
+  STM_EVAL_LEDToggle(LED3);
+  um_handle_in_cbk(in_handle);
 }
 /**
   * @}

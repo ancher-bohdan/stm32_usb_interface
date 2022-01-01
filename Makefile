@@ -146,7 +146,8 @@ LDSCRIPT = Libraries/stm32_flash.ld
 
 # libraries
 LIBS = -lc -lm -lnosys 
-LIBDIR = Libraries/CMSIS/Lib/GCC/libarm_cortexM4lf_math.a
+LIBDIR = Libraries/CMSIS/Lib/GCC/libarm_cortexM4lf_math.a \
+		 Libraries/CMSIS/Lib/GCC/libPDMFilter_CM4_GCC_wc32.a
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
 all:

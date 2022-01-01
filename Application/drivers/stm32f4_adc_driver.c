@@ -3,6 +3,8 @@
 #include "stm32f4xx_rcc.h"
 #include "stm32f4xx_dma.h"
 
+#include "stm32f4_adc_driver.h"
+
 #define ADC_STAB_DELAY_US 3U
 
 /**ADC1 GPIO Configuration
@@ -28,26 +30,26 @@ static void ADC_DriverInit(void)
 
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
 
-    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
+    ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
     ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T1_CC1;
-    ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
+    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T2_TRGO;
+    ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Rising;
     ADC_InitStructure.ADC_NbrOfConversion = 1;
     ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
     ADC_InitStructure.ADC_ScanConvMode = DISABLE;
     ADC_Init(ADC1, &ADC_InitStructure);
 
-    ADC1->CR2 &= ~(ADC_CR2_EXTSEL);
-    ADC1->CR2 &= ~(ADC_CR2_EXTEN);
+    //ADC1->CR2 &= ~(ADC_CR2_EXTSEL);
+    //ADC1->CR2 &= ~(ADC_CR2_EXTEN);
 
     ADC_CommonStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
     ADC_CommonStructure.ADC_Mode = ADC_Mode_Independent;
     ADC_CommonStructure.ADC_Prescaler = ADC_Prescaler_Div4;
-    ADC_CommonStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
+    ADC_CommonStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_20Cycles;
     ADC_CommonInit(&ADC_CommonStructure);
 
     ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 1, ADC_SampleTime_480Cycles);
-    ADC_DMARequestAfterLastTransferCmd(ADC1, DISABLE);
+    ADC_DMARequestAfterLastTransferCmd(ADC1, ENABLE);
 }
 
 static void ADC_DMA_Init(void)
@@ -66,12 +68,13 @@ static void ADC_DMA_Init(void)
     DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
     DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
     DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
     DMA_InitStructure.DMA_Priority = DMA_Priority_High;
     DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
     DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
     DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
     DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
+    DMA_DoubleBufferModeCmd(DMA2_Stream0, ENABLE);
 
     DMA_Init(DMA2_Stream0, &DMA_InitStructure);
 
@@ -81,7 +84,7 @@ static void ADC_DMA_Init(void)
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
-    DMA_ITConfig(DMA2_Stream0, DMA_IT_TC, ENABLE);
+    DMA_ITConfig(DMA2_Stream0, DMA_IT_TC | DMA_IT_HT, ENABLE);
 }
 
 void adc_init(void)
@@ -110,34 +113,43 @@ void adc_start(uint16_t *samples_buffer, uint32_t samples_number)
 {
     ADC_DMACmd(ADC1, ENABLE);
     DMA2_Stream0->M0AR = (uint32_t)samples_buffer;
-    DMA2_Stream0->NDTR = samples_number;
+    DMA2_Stream0->NDTR = samples_number >> 1;
+    DMA_DoubleBufferModeConfig(DMA2_Stream0, (uint32_t)(samples_buffer + (samples_number >> 1)), DMA_Memory_0);
+    DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_HTIF0 | DMA_IT_TCIF0);
     DMA_Cmd(DMA2_Stream0, ENABLE);
     ADC_SoftwareStartConv(ADC1);
 }
 
-typedef void (*sampling_cmpl_cbk)(void *arg);
-
-static sampling_cmpl_cbk adc_cbk;
-static void *adc_args;
-
-void adc_sampling_wrapper(int16_t *samples, uint16_t size, void (*finish_cbk)(void *arg), void *args)
+void adc_sampling_wrapper(uint32_t samples, uint32_t size)
 {
-  adc_cbk = finish_cbk;
-  adc_args = args;
-  ADC_ContinuousModeCmd(ADC1, ENABLE);
   adc_start((uint16_t *)samples, size);
+}
+
+uint32_t adc_pause(uint32_t cmd, uint32_t addr, uint32_t size)
+{
+  if(cmd == 0)
+  {
+    DMA_Cmd(DMA2_Stream0, DISABLE);
+    ADC_DMACmd(ADC1, DISABLE);
+    DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_HTIF0 | DMA_IT_TCIF0);
+  }
+  else if(cmd == 1)
+  {
+    adc_sampling_wrapper(addr, size);
+  }
+  return 0;
 }
 
 void DMA2_Stream0_IRQHandler(void)
 {
+  if (DMA_GetITStatus(DMA2_Stream0, DMA_IT_HTIF0))
+  {
+    DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_HTIF0);
+    ADC_DMAHalfTransfere_Complete();
+  }
   if (DMA_GetITStatus(DMA2_Stream0, DMA_IT_TCIF0))
   {
     DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_TCIF0);
-    ADC_ContinuousModeCmd(ADC1, DISABLE);
-    ADC_DMACmd(ADC1, DISABLE);
-    if((adc_cbk != (void *)0) && (adc_args != (void *)0))
-    {
-        adc_cbk(adc_args);
-    }
+    ADC_DMATransfere_Complete();
   }
 }
