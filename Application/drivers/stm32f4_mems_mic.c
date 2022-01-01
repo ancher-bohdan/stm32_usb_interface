@@ -100,25 +100,14 @@ void MEMS_MIC_DMA_Start(void *addr, uint32_t size)
     I2S_Cmd(SPI2, ENABLE);
 }
 
-extern uint8_t data_buffer_idx;
 void DMA1_Stream3_IRQHandler(void)
 {
     if(DMA_GetITStatus(DMA1_Stream3, DMA_IT_HTIF3))
     {
         DMA_ClearITPendingBit(DMA1_Stream3, DMA_IT_HTIF3);
-        if(data_buffer_idx != 0xFF)
-        {
-            while(1) {}
-        }
-        data_buffer_idx = 0;
     }
     if (DMA_GetITStatus(DMA1_Stream3, DMA_IT_TCIF3))
     {
         DMA_ClearITPendingBit(DMA1_Stream3, DMA_IT_TCIF3);
-        if(data_buffer_idx != 0xFF)
-        {
-            while(1) {}
-        }
-        data_buffer_idx = 1;
     }
 }

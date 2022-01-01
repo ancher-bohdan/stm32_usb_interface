@@ -580,17 +580,6 @@ static uint8_t  *USBD_audio_GetCfgDesc (uint8_t speed, uint16_t *length)
 }
 
 #include "stm324xg_eval.h"
-
-void ADC_DMAHalfTransfere_Complete()
-{
-  STM_EVAL_LEDToggle(LED1);
-  um_handle_in_cbk(in_handle);
-}
-void ADC_DMATransfere_Complete()
-{
-  STM_EVAL_LEDToggle(LED3);
-  um_handle_in_cbk(in_handle);
-}
 /**
   * @}
   */ 

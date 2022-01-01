@@ -39,17 +39,15 @@ static void ADC_DriverInit(void)
     ADC_InitStructure.ADC_ScanConvMode = DISABLE;
     ADC_Init(ADC1, &ADC_InitStructure);
 
-    //ADC1->CR2 &= ~(ADC_CR2_EXTSEL);
-    //ADC1->CR2 &= ~(ADC_CR2_EXTEN);
-
     ADC_CommonStructure.ADC_DMAAccessMode = ADC_DMAAccessMode_Disabled;
     ADC_CommonStructure.ADC_Mode = ADC_Mode_Independent;
     ADC_CommonStructure.ADC_Prescaler = ADC_Prescaler_Div4;
-    ADC_CommonStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_20Cycles;
+    ADC_CommonStructure.ADC_TwoSamplingDelay = ADC_TwoSamplingDelay_5Cycles;
     ADC_CommonInit(&ADC_CommonStructure);
 
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 1, ADC_SampleTime_480Cycles);
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 1, ADC_SampleTime_3Cycles);
     ADC_DMARequestAfterLastTransferCmd(ADC1, ENABLE);
+    ADC_DMACmd(ADC1, ENABLE);
 }
 
 static void ADC_DMA_Init(void)
@@ -87,11 +85,37 @@ static void ADC_DMA_Init(void)
     DMA_ITConfig(DMA2_Stream0, DMA_IT_TC | DMA_IT_HT, ENABLE);
 }
 
+static void TIM_ADC_Init()
+{
+    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+    TIM_OCInitTypeDef  TIM_OCInitStructure;
+
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+
+    /* Time base configuration */
+    TIM_TimeBaseStructure.TIM_Period = 5250;
+    TIM_TimeBaseStructure.TIM_Prescaler = 0;
+    TIM_TimeBaseStructure.TIM_ClockDivision = 0;
+    TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+
+    TIM_SelectOutputTrigger(TIM2, TIM_TRGOSource_Update);
+
+    /* PWM1 Mode configuration: Channel1 */
+    TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
+    TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
+    TIM_OCInitStructure.TIM_Pulse = 0;
+    TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
+    TIM_OC1Init(TIM2, &TIM_OCInitStructure);
+}
+
 void adc_init(void)
 {
     ADC_GPIO_Init();
 
     ADC_DriverInit();
+
+    TIM_ADC_Init();
 
     ADC_DMA_Init();
 }
@@ -111,13 +135,12 @@ void adc_on(void)
 
 void adc_start(uint16_t *samples_buffer, uint32_t samples_number)
 {
-    ADC_DMACmd(ADC1, ENABLE);
     DMA2_Stream0->M0AR = (uint32_t)samples_buffer;
     DMA2_Stream0->NDTR = samples_number >> 1;
     DMA_DoubleBufferModeConfig(DMA2_Stream0, (uint32_t)(samples_buffer + (samples_number >> 1)), DMA_Memory_0);
     DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_HTIF0 | DMA_IT_TCIF0);
     DMA_Cmd(DMA2_Stream0, ENABLE);
-    ADC_SoftwareStartConv(ADC1);
+    TIM_Cmd(TIM2, ENABLE);
 }
 
 void adc_sampling_wrapper(uint32_t samples, uint32_t size)

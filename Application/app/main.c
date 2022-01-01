@@ -1,7 +1,7 @@
 #include "stm32f4xx.h"
 #include "stm324xg_eval.h"
-//#include "stm32f4_adc_driver.h"
-#include "stm32f4_mems_mic.h"
+#include "stm32f4_adc_driver.h"
+//#include "stm32f4_mems_mic.h"
 #include "stm324xg_usb_audio_codec.h"
 
 #include "usbd_audio_core.h"
@@ -18,15 +18,6 @@ __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
 
 static __IO int32_t TimingDelay;
 
-static PDM_Filter_Handler_t pdm_filter_handle =
-{
-  .bit_order = PDM_FILTER_BIT_ORDER_MSB,
-  .endianness = PDM_FILTER_ENDIANNESS_BE,
-  .high_pass_tap = 0,
-  .in_ptr_channels = 1,
-  .out_ptr_channels = 1
-};
-
 void USBAudioInit()
 {
   USBD_Init(&USB_OTG_dev,
@@ -38,27 +29,15 @@ void USBAudioInit()
             &USR_desc, &AUDIO_cb, &USR_cb);
 }
 
-#define PDM_BUFFER_SIZE 100
-#define PCM_BUFFER_SIZE 100
-
-uint16_t PDM_data[2][PDM_BUFFER_SIZE];
-uint8_t data_buffer_idx = 0xFF; // contains index of buffer with PDM data to convert
-
-uint16_t PCM_Data[4][PCM_BUFFER_SIZE];
-uint8_t pcm_data_w = 0;
-uint8_t pcm_data_r = 0;
-bool is_streaming = false;
+#define TEST_SIZE 300
+uint16_t data[4][TEST_SIZE];
+uint8_t data_idx_r = 0;
+uint8_t data_idx_w = 0;
+bool is_playing = false;
 
 int main(void)
 {
   int res = 0;
-  PDM_Filter_Config_t pdm_config = 
-  {
-    .decimation_factor = PDM_FILTER_DEC_FACTOR_128,
-    .mic_gain = 51,
-    .output_samples_number = PCM_BUFFER_SIZE
-  };
-
   RCC_ClocksTypeDef RCC_Clocks;
 
   /* Initialize LEDS */
@@ -76,63 +55,68 @@ int main(void)
   {
   }
 
-  MEMS_MIC_Init();
-  res = EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 16000);
+  res = EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 8000); // Only for testing. Set frequency for audio codec = ADC_sampling_frequency / 2.  
 
-  RCC->AHB1ENR |= RCC_AHB1ENR_CRCEN;
-  CRC->CR = CRC_CR_RESET;
+  adc_init();
+  adc_on();
 
-  res += PDM_Filter_Init(&pdm_filter_handle);
-  res += PDM_Filter_setConfig(&pdm_filter_handle, &pdm_config);
-  if(res != 0)
-  {
-    while(1) {}
-  }
-
-  MEMS_MIC_DMA_Start(PDM_data, PDM_BUFFER_SIZE * 2);
-
-  //adc_init();
-  //adc_on();
+  adc_start(&(data[0][0]), TEST_SIZE * 4);
 
   //USBAudioInit();
 
   while (1)
   {
-    if(data_buffer_idx != 0xFF)
-    {
-      PDM_Filter((void *)(&(PDM_data[data_buffer_idx][0])), (void *)(&(PCM_Data[(pcm_data_w++) % 4][0])), &pdm_filter_handle);
-      data_buffer_idx = 0xFF;
-      if(!is_streaming)
-      {
-        if(pcm_data_w == 2)
-        {
-          is_streaming = true;
-          Audio_MAL_Play((uint32_t)(&(PCM_Data[0][0])), PCM_BUFFER_SIZE * 4);
-        }
-      }
-      STM_EVAL_LEDToggle(LED1);
-    }
+
   }
 }
 
 void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size)
 {
-  pcm_data_r = (pcm_data_r + 1) % 4;
-  if((pcm_data_r) == pcm_data_w)
+  data_idx_r = (data_idx_r + 1) % 4;
+  if(data_idx_r == data_idx_w)
   {
-    STM_EVAL_LEDOn(LED4);
+    STM_EVAL_LEDToggle(LED2);
+    while(1) {}
   }
-  STM_EVAL_LEDToggle(LED2);
+  STM_EVAL_LEDToggle(LED1);
 }
 
 void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
 {
-  pcm_data_r = (pcm_data_r + 1) % 4;
-  if((pcm_data_r) == pcm_data_w)
+  data_idx_r = (data_idx_r + 1) % 4;
+  if(data_idx_r == data_idx_w)
   {
-    STM_EVAL_LEDOn(LED4);
+    STM_EVAL_LEDToggle(LED2);
+    while(1) {}
   }
-  STM_EVAL_LEDToggle(LED2);
+}
+
+void ADC_DMAHalfTransfere_Complete()
+{
+  data_idx_w = (data_idx_w + 1) % 4;
+  if(data_idx_r == data_idx_w)
+  {
+    STM_EVAL_LEDToggle(LED4);
+    while(1) {}
+  }
+}
+
+void ADC_DMATransfere_Complete()
+{
+  data_idx_w = (data_idx_w + 1) % 4;
+  
+  if(!is_playing)
+  {
+    is_playing = true;
+    Audio_MAL_Play((uint32_t)(&(data[0][0])), TEST_SIZE * 4);
+  }
+  if(data_idx_r == data_idx_w)
+  {
+    STM_EVAL_LEDToggle(LED4);
+    while(1) {}
+  }
+  
+  STM_EVAL_LEDToggle(LED3);
 }
 
 void Delay_blocking(__IO uint32_t timeout)
