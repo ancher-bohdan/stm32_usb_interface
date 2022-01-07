@@ -30,6 +30,8 @@ int main(void)
   RCC_ClocksTypeDef RCC_Clocks;
 
   /* Initialize LEDS */
+  STM_EVAL_LEDInit(LED1);
+  STM_EVAL_LEDInit(LED2);
   STM_EVAL_LEDInit(LED3);
   STM_EVAL_LEDInit(LED4);
        
