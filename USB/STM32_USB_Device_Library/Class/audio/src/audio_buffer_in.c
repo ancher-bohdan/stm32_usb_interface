@@ -6,15 +6,16 @@
 
 void um_handle_in_pause(struct um_buffer_handle *handle)
 {
-    if(handle->um_buffer_state == UM_BUFFER_STATE_PLAY)
-    {
-        handle->um_write->um_node_offset = 0;
-        handle->um_write->um_node_state = UM_NODE_STATE_FREE;
-        handle->um_read->um_node_offset = 0;
-        handle->um_read->um_node_state = UM_NODE_STATE_FREE;
-        handle->um_read = handle->um_write = handle->um_start;
-        handle->um_abs_offset = 0;
-    }
+    struct um_node *node = handle->um_start;
+
+    do{
+        node->um_node_offset = 0;
+        node->um_node_state = UM_NODE_STATE_FREE;
+        node = node->next;
+    }while(node != handle->um_start);
+
+    handle->um_read = handle->um_write = handle->um_start;
+    handle->um_abs_offset = 0;
 
     handle->um_pause_resume(0, (uint32_t)handle->um_start->um_buf, 0);
 
@@ -37,7 +38,7 @@ uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
 {
     if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
-        if(handle->um_abs_offset <= ((handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) >> 1))
+        if(handle->um_abs_offset < ((handle->um_number_of_nodes * handle->um_usb_frame_in_node) >> 1))
         {
             return handle->um_start->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
         }
@@ -53,9 +54,7 @@ uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
         if(handle->um_read->next->um_node_state != UM_NODE_STATE_READY)
         {
             //buffer underflow
-            while(1) {}
-            handle->um_read->um_node_offset--;
-            return NULL;
+            return (uint8_t *)0xFFFFFFFF;
         }
         handle->um_read->um_node_offset = 0;
         handle->um_read->um_node_state = UM_NODE_STATE_FREE;
@@ -65,11 +64,8 @@ uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
     return handle->um_read->um_buf + (handle->um_read->um_node_offset * handle->um_usb_packet_size);
 }
 
-uint32_t counter = 0;
-
 void um_handle_in_cbk(struct um_buffer_handle *handle)
 {
-    counter++;
     uint32_t node_subbuf_count = handle->um_usb_frame_in_node * handle->um_number_of_nodes;
 
     handle->um_write->um_node_state = UM_NODE_STATE_READY;
@@ -79,7 +75,6 @@ void um_handle_in_cbk(struct um_buffer_handle *handle)
     if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
     {
         //buffer overflow
-        while(1) {}
         um_handle_in_pause(handle);
     }
 }

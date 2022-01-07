@@ -29,15 +29,8 @@ void USBAudioInit()
             &USR_desc, &AUDIO_cb, &USR_cb);
 }
 
-#define TEST_SIZE 300
-uint16_t data[4][TEST_SIZE];
-uint8_t data_idx_r = 0;
-uint8_t data_idx_w = 0;
-bool is_playing = false;
-
 int main(void)
 {
-  int res = 0;
   RCC_ClocksTypeDef RCC_Clocks;
 
   /* Initialize LEDS */
@@ -55,14 +48,10 @@ int main(void)
   {
   }
 
-  res = EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 8000); // Only for testing. Set frequency for audio codec = ADC_sampling_frequency / 2.  
-
   adc_init();
   adc_on();
 
-  adc_start(&(data[0][0]), TEST_SIZE * 4);
-
-  //USBAudioInit();
+  USBAudioInit();
 
   while (1)
   {
@@ -72,51 +61,10 @@ int main(void)
 
 void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size)
 {
-  data_idx_r = (data_idx_r + 1) % 4;
-  if(data_idx_r == data_idx_w)
-  {
-    STM_EVAL_LEDToggle(LED2);
-    while(1) {}
-  }
-  STM_EVAL_LEDToggle(LED1);
 }
 
 void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
 {
-  data_idx_r = (data_idx_r + 1) % 4;
-  if(data_idx_r == data_idx_w)
-  {
-    STM_EVAL_LEDToggle(LED2);
-    while(1) {}
-  }
-}
-
-void ADC_DMAHalfTransfere_Complete()
-{
-  data_idx_w = (data_idx_w + 1) % 4;
-  if(data_idx_r == data_idx_w)
-  {
-    STM_EVAL_LEDToggle(LED4);
-    while(1) {}
-  }
-}
-
-void ADC_DMATransfere_Complete()
-{
-  data_idx_w = (data_idx_w + 1) % 4;
-  
-  if(!is_playing)
-  {
-    is_playing = true;
-    Audio_MAL_Play((uint32_t)(&(data[0][0])), TEST_SIZE * 4);
-  }
-  if(data_idx_r == data_idx_w)
-  {
-    STM_EVAL_LEDToggle(LED4);
-    while(1) {}
-  }
-  
-  STM_EVAL_LEDToggle(LED3);
 }
 
 void Delay_blocking(__IO uint32_t timeout)

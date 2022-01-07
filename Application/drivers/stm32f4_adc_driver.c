@@ -153,7 +153,7 @@ uint32_t adc_pause(uint32_t cmd, uint32_t addr, uint32_t size)
   if(cmd == 0)
   {
     DMA_Cmd(DMA2_Stream0, DISABLE);
-    ADC_DMACmd(ADC1, DISABLE);
+    TIM_Cmd(TIM2, DISABLE);
     DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_HTIF0 | DMA_IT_TCIF0);
   }
   else if(cmd == 1)

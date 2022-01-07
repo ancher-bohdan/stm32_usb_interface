@@ -316,6 +316,7 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
 
 static struct um_buffer_handle *in_handle = NULL;
 static uint8_t null_data[AUDIO_IN_PACKET] = { 0 };
+static uint8_t play_flag = 0;
 
 /** @defgroup usbd_audio_Private_Functions
   * @{
@@ -434,7 +435,7 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
         }
         else
         {
-          DCD_EP_Tx(pdev, AUDIO_IN_EP, um_handle_in_resume(in_handle), in_handle->um_usb_packet_size);
+          play_flag = 1;
         }
       }
       else
@@ -477,6 +478,9 @@ static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
   if(next == NULL)
   {
     next = null_data;
+  } else if (next == 0xFFFFFFFF)
+  {
+    return USBD_OK;
   }
 
   DCD_EP_Tx(pdev, AUDIO_IN_EP, next, in_handle->um_usb_packet_size);
@@ -505,6 +509,11 @@ static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
   */
 static uint8_t  usbd_audio_SOF (void *pdev)
 {
+  if(play_flag == 1)
+  {
+    DCD_EP_Tx(pdev, AUDIO_IN_EP, um_handle_in_resume(in_handle), in_handle->um_usb_packet_size);
+    play_flag = 0;
+  }
   return USBD_OK;
 }
 
@@ -579,7 +588,16 @@ static uint8_t  *USBD_audio_GetCfgDesc (uint8_t speed, uint16_t *length)
   return usbd_audio_CfgDesc;
 }
 
-#include "stm324xg_eval.h"
+void ADC_DMAHalfTransfere_Complete()
+{
+  um_handle_in_cbk(in_handle);
+}
+
+void ADC_DMATransfere_Complete()
+{
+  um_handle_in_cbk(in_handle);
+}
+
 /**
   * @}
   */ 
