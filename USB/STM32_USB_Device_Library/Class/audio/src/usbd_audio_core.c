@@ -150,7 +150,6 @@ uint8_t  AudioCtl[64];
 uint8_t  AudioCtlCmd = 0;
 uint32_t AudioCtlLen = 0;
 uint8_t  AudioCtlUnit = 0;
-uint8_t PlayFlag = 1;
 
 static __IO uint32_t  usbd_audio_AltSet = 0;
 static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE];
@@ -316,7 +315,6 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
 
 static struct um_buffer_handle *in_handle = NULL;
 static uint8_t null_data[AUDIO_IN_PACKET] = { 0 };
-static uint8_t play_flag = 0;
 
 /** @defgroup usbd_audio_Private_Functions
   * @{
@@ -435,7 +433,7 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
         }
         else
         {
-          play_flag = 1;
+          um_handle_in_trigger_resume(in_handle);
         }
       }
       else
@@ -509,10 +507,10 @@ static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
   */
 static uint8_t  usbd_audio_SOF (void *pdev)
 {
-  if(play_flag == 1)
+  uint8_t *buf = um_handle_in_event_dispatcher(in_handle);
+  if(buf != NULL)
   {
-    DCD_EP_Tx(pdev, AUDIO_IN_EP, um_handle_in_resume(in_handle), in_handle->um_usb_packet_size);
-    play_flag = 0;
+    DCD_EP_Tx(pdev, AUDIO_IN_EP, buf, in_handle->um_usb_packet_size);
   }
   return USBD_OK;
 }

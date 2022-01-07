@@ -8,12 +8,15 @@
 #define CW_LOWER_BOUND                      1
 #define CW_UPPER_BOUND                      3
 
+#define UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY 0x4
 #define UM_BUFFER_FLAG_CONGESTION_AVIODANCE 0x2
 #define UM_BUFFER_FLAG_HALF_USB_FRAME       0x1
 
+#define GET_BUF_LISTENERS_NEMPTY_FLAG(flag) ((flag) & UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY)
 #define GET_CONGESTION_AVOIDANCE_FLAG(flag) ((flag) & UM_BUFFER_FLAG_CONGESTION_AVIODANCE)
 #define GET_HALF_USB_FRAME_FLAG(flag)       ((flag) & UM_BUFFER_FLAG_HALF_USB_FRAME)
 
+#define TOGGLE_BUF_LISTENERS_NEMPTY_FLAG(flag)  (flag) = ((flag) ^ UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY)
 #define TOGGLE_CONGESTION_AVOIDANCE_FLAG(flag)  (flag) = ((flag) ^ UM_BUFFER_FLAG_CONGESTION_AVIODANCE)
 #define TOGGLE_HALF_USB_FRAME_FLAG(flag)        (flag) = ((flag) ^ UM_BUFFER_FLAG_HALF_USB_FRAME)
 
@@ -100,6 +103,8 @@ void um_handle_in_pause(struct um_buffer_handle *handle);
 uint8_t *um_handle_in_resume(struct um_buffer_handle *handle);
 uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle);
 void um_handle_in_cbk(struct um_buffer_handle *handle);
+void um_handle_in_trigger_resume(struct um_buffer_handle *handle);
+uint8_t *um_handle_in_event_dispatcher(struct um_buffer_handle *handle);
 
 void free_um_buffer_handle(struct um_buffer_handle *handle);
 
