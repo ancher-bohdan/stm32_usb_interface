@@ -96,6 +96,11 @@ void audio_dma_complete_cb(struct um_buffer_handle *handle);
 
 void um_buffer_handle_register_listener(struct um_buffer_handle *handle, int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk, void *arg);
 
+void um_handle_in_pause(struct um_buffer_handle *handle);
+uint8_t *um_handle_in_resume(struct um_buffer_handle *handle);
+uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle);
+void um_handle_in_cbk(struct um_buffer_handle *handle);
+
 void free_um_buffer_handle(struct um_buffer_handle *handle);
 
 #endif
