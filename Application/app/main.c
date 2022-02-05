@@ -6,6 +6,8 @@
 #include "usbd_usr.h"
 #include "usb_conf.h"
 
+#include "dsp.h"
+
 #include <stdbool.h>
 
 void Delay_blocking(__IO uint32_t timeout);
@@ -44,6 +46,8 @@ int main(void)
   {
   }
 
+  dsp_init();
+
   adc_init();
   adc_on();
 
@@ -51,7 +55,7 @@ int main(void)
 
   while (1)
   {
-
+    dsp_process();
   }
 }
 

@@ -1,8 +1,25 @@
 #include "audio_buffer.h"
+#include "dsp.h"
 
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+
+static void usb_data_ready(void *arg)
+{
+    struct um_buffer_handle *handle = (struct um_buffer_handle *)arg;
+    uint32_t node_subbuf_count = handle->um_usb_frame_in_node * handle->um_number_of_nodes;
+
+    handle->um_write->um_node_state = UM_NODE_STATE_READY;
+    handle->um_abs_offset = (handle->um_abs_offset + handle->um_usb_frame_in_node) % node_subbuf_count;
+    handle->um_write = handle->um_write->next;
+
+    if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
+    {
+        //buffer overflow
+        um_handle_in_pause(handle);
+    }
+}
 
 void um_handle_in_trigger_resume(struct um_buffer_handle *handle)
 {
@@ -99,15 +116,10 @@ uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
 
 void um_handle_in_cbk(struct um_buffer_handle *handle)
 {
-    uint32_t node_subbuf_count = handle->um_usb_frame_in_node * handle->um_number_of_nodes;
+    int res = dsp_calculation_request((int16_t *)handle->um_write->um_buf, usb_data_ready, (void *)handle);
 
-    handle->um_write->um_node_state = UM_NODE_STATE_READY;
-    handle->um_abs_offset = (handle->um_abs_offset + handle->um_usb_frame_in_node) % node_subbuf_count;
-    handle->um_write = handle->um_write->next;
-
-    if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
+    if(res)
     {
-        //buffer overflow
-        um_handle_in_pause(handle);
+        while(1) {}
     }
 }
