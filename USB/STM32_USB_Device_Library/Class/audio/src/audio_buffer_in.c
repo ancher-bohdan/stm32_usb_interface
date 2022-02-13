@@ -18,6 +18,7 @@ static void usb_data_ready(void *arg)
     {
         //buffer overflow
         um_handle_in_pause(handle);
+        um_handle_in_trigger_resume(handle);
     }
 }
 
@@ -76,9 +77,20 @@ uint8_t *um_handle_in_resume(struct um_buffer_handle *handle)
 {
     if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
+        struct um_node *node = handle->um_start;
+
+        do{
+            node->um_node_offset = 0;
+            node->um_node_state = UM_NODE_STATE_FREE;
+            node = node->next;
+        }while(node != handle->um_start);
+
+        handle->um_read = handle->um_write = handle->um_start;
+        handle->um_abs_offset = 0;
+
         handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
         
-        handle->um_play((uint32_t)handle->um_write->um_buf, (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) >> 1);
+        handle->um_play((uint32_t)handle->um_start->um_buf, (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) >> 1);
     }
 
     return handle->um_start->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
