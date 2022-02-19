@@ -100,7 +100,7 @@ uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
 {
     if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
-        if(handle->um_abs_offset < ((handle->um_number_of_nodes * handle->um_usb_frame_in_node) >> 1))
+        if(handle->um_abs_offset < ((handle->um_number_of_nodes * handle->um_usb_frame_in_node) >> 2))
         {
             return handle->um_start->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
         }
