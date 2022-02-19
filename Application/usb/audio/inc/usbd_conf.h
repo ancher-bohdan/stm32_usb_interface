@@ -31,7 +31,7 @@
   */
 
 /* Audio frequency in Hz */
-#define USBD_IN_FREQ                    16000
+#define USBD_IN_FREQ                    48000
 #ifndef EXTERNAL_CRYSTAL_25MHz
  #define USBD_AUDIO_FREQ                48000 
 #else

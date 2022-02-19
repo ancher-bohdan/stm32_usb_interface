@@ -93,7 +93,7 @@ static void TIM_ADC_Init()
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 
     /* Time base configuration */
-    TIM_TimeBaseStructure.TIM_Period = 5249;
+    TIM_TimeBaseStructure.TIM_Period = 1749;
     TIM_TimeBaseStructure.TIM_Prescaler = 0;
     TIM_TimeBaseStructure.TIM_ClockDivision = 0;
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
