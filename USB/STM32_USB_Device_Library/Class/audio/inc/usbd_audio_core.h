@@ -56,7 +56,7 @@
 /* Total size of the audio transfer buffer */
 #define TOTAL_OUT_BUF_SIZE                           ((uint32_t)(AUDIO_OUT_PACKET * OUT_PACKET_NUM))
 
-#define AUDIO_CONFIG_DESC_SIZE                        100
+#define AUDIO_CONFIG_DESC_SIZE                        183
 #define AUDIO_INTERFACE_DESC_SIZE                     9
 #define USB_AUDIO_DESC_SIZ                            0x09
 #define AUDIO_STANDARD_ENDPOINT_DESC_SIZE             0x09
@@ -95,7 +95,7 @@
 #define AUDIO_REQ_GET_CUR                             0x81
 #define AUDIO_REQ_SET_CUR                             0x01
 
-#define AUDIO_OUT_STREAMING_CTRL                      0x02
+#define AUDIO_OUT_FEATURE_UNIT_ID                     0x04
 
 /**
   * @}
@@ -124,9 +124,9 @@ typedef struct _Audio_Fops
 /** @defgroup USBD_CORE_Exported_Macros
   * @{
   */ 
-#define AUDIO_PACKET_SZE(frq)          (uint8_t)(((frq * 2 * 1)/1000) & 0xFF), \
-                                       (uint8_t)((((frq * 2 * 1)/1000) >> 8) & 0xFF)
-#define SAMPLE_FREQ(frq)               (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
+#define AUDIO_PACKET_SZE(frq, channel_number)         (uint8_t)(((frq * 2 * channel_number)/1000) & 0xFF), \
+                                                      (uint8_t)((((frq * 2 * channel_number)/1000) >> 8) & 0xFF)
+#define SAMPLE_FREQ(frq)                              (uint8_t)(frq), (uint8_t)((frq >> 8)), (uint8_t)((frq >> 16))
 /**
   * @}
   */ 
