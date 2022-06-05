@@ -43,9 +43,9 @@
 /* Use this section to modify the number of supported interfaces and configurations.
    Note that if you modify these parameters, you have to modify the descriptors
    accordingly in usbd_audio_core.c file */
-#define AUDIO_TOTAL_IF_NUM              0x02
+#define AUDIO_TOTAL_IF_NUM              0x03
 #define USBD_CFG_MAX_NUM                1
-#define USBD_ITF_MAX_NUM                1
+#define USBD_ITF_MAX_NUM                0x02
 #define USB_MAX_STR_DESC_SIZ            200
 
 #define USBD_SELF_POWERED
