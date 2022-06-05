@@ -150,7 +150,7 @@ uint8_t  AudioCtlCmd = 0;
 uint32_t AudioCtlLen = 0;
 uint8_t  AudioCtlUnit = 0;
 
-static __IO uint32_t  usbd_audio_AltSet = 0;
+static __IO uint8_t  usbd_audio_AltSet[2] = {0, 0};
 static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE];
 
 /* AUDIO interface class callbacks structure */
@@ -592,16 +592,27 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
       break;
       
     case USB_REQ_GET_INTERFACE :
-      USBD_CtlSendData (pdev,
-                        (uint8_t *)&usbd_audio_AltSet,
-                        1);
+      if ((uint8_t)(req->wIndex) < AUDIO_TOTAL_IF_NUM)
+      {
+        USBD_CtlSendData (pdev,
+                  (uint8_t *)&(usbd_audio_AltSet[req->wIndex]),
+                  1);
+      }
+      else
+      {
+        /* Call the error management function (command will be nacked */
+        USBD_CtlError (pdev, req);
+      }
       break;
       
     case USB_REQ_SET_INTERFACE :
-      if ((uint8_t)(req->wValue) < AUDIO_TOTAL_IF_NUM)
+      if ((uint8_t)(req->wIndex) < AUDIO_TOTAL_IF_NUM)
       {
-        usbd_audio_AltSet = (uint8_t)(req->wValue);
-        if (usbd_audio_AltSet == 0)
+        usbd_audio_AltSet[req->wIndex] = (uint8_t)(req->wValue);
+
+        if(req->wIndex == 1) break;
+
+        if (usbd_audio_AltSet[req->wIndex] == 0)
         {
           um_handle_in_pause(in_handle);
           DCD_EP_Flush (pdev,AUDIO_IN_EP);
