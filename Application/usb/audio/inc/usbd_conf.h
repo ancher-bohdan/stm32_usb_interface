@@ -58,7 +58,7 @@
   * @{
   */
 #define AUDIO_OUT_EP                    0x01
-#define AUDIO_IN_EP                     0x82
+#define AUDIO_IN_EP                     0x81
 /**
   * @}
   */
