@@ -150,7 +150,7 @@ uint8_t  AudioCtlCmd = 0;
 uint32_t AudioCtlLen = 0;
 uint8_t  AudioCtlUnit = 0;
 
-static __IO uint8_t  usbd_audio_AltSet[2] = {0, 0};
+static __IO uint8_t  usbd_audio_AltSet[AUDIO_TOTAL_IF_NUM] = {0, 0, 0};
 static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE];
 
 /* AUDIO interface class callbacks structure */
@@ -610,7 +610,7 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
       {
         usbd_audio_AltSet[req->wIndex] = (uint8_t)(req->wValue);
 
-        if(req->wIndex == 1) break;
+        if(req->wIndex <= 1) break;
 
         if (usbd_audio_AltSet[req->wIndex] == 0)
         {
