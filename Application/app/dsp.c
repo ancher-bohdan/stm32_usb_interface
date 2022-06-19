@@ -113,8 +113,9 @@ void dsp_process()
     arm_q15_to_float(dsp_request[read].pSamples, &(tmp[0][0]), SAMPLES_SIZE);
 
     arm_fir_f32(&fir, &(tmp[0][0]), &(tmp[1][0]), SAMPLES_SIZE);
+    arm_scale_f32(&(tmp[1][0]), 4, &(tmp[0][0]), SAMPLES_SIZE);
 
-    arm_float_to_q15(&(tmp[1][0]), dsp_request[read].pSamples, SAMPLES_SIZE);
+    arm_float_to_q15(&(tmp[0][0]), dsp_request[read].pSamples, SAMPLES_SIZE);
 
     dsp_request[read].dsp_finish_cbk(dsp_request[read].arg);
     
