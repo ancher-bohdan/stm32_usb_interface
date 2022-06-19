@@ -159,7 +159,7 @@
 #ifdef USB_OTG_FS_CORE
  #define RX_FIFO_FS_SIZE                          109
  #define TX0_FIFO_FS_SIZE                          32
- #define TX1_FIFO_FS_SIZE                          16
+ #define TX1_FIFO_FS_SIZE                          48
  #define TX2_FIFO_FS_SIZE                           0
  #define TX3_FIFO_FS_SIZE                           0
 
