@@ -297,7 +297,7 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   USB_INTERFACE_DESCRIPTOR_TYPE,        /* bDescriptorType */
   0x01,                                 /* bInterfaceNumber */
   0x01,                                 /* bAlternateSetting */
-  0x01,                                 /* bNumEndpoints */
+  0x02,                                 /* bNumEndpoints */
   USB_DEVICE_CLASS_AUDIO,               /* bInterfaceClass */
   AUDIO_SUBCLASS_AUDIOSTREAMING,        /* bInterfaceSubClass */
   AUDIO_PROTOCOL_UNDEFINED,             /* bInterfaceProtocol */
@@ -330,8 +330,31 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
   USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
   AUDIO_OUT_EP,                         /* bEndpointAddress 1 out endpoint*/
+  USB_ENDPOINT_SYNC_ASYNC | 
   USB_ENDPOINT_TYPE_ISOCHRONOUS,        /* bmAttributes */
   AUDIO_PACKET_SZE(USBD_AUDIO_FREQ, 2), /* wMaxPacketSize in Bytes (Freq(Samples)*2(Stereo)*2(HalfWord)) */
+  0x01,                                 /* bInterval */
+  0x00,                                 /* bRefresh */
+  AUDIO_IN_FEEDBACK_EP,                 /* bSynchAddress */
+  /* 09 byte*/
+  
+  /* Endpoint - Audio Streaming Descriptor*/
+  AUDIO_STREAMING_ENDPOINT_DESC_SIZE,   /* bLength */
+  AUDIO_ENDPOINT_DESCRIPTOR_TYPE,       /* bDescriptorType */
+  AUDIO_ENDPOINT_GENERAL,               /* bDescriptor */
+  0x00,                                 /* bmAttributes */
+  0x00,                                 /* bLockDelayUnits */
+  0x00,                                 /* wLockDelay */
+  0x00,
+  /* 07 byte*/
+
+  /* Endpoint 2 Feedback - Standard Descriptor */
+  AUDIO_STANDARD_ENDPOINT_DESC_SIZE,    /* bLength */
+  USB_ENDPOINT_DESCRIPTOR_TYPE,         /* bDescriptorType */
+  AUDIO_IN_FEEDBACK_EP,                 /* bEndpointAddress 2 in endpoint*/
+  USB_ENDPOINT_USAGE_FEEDBACK | 
+  USB_ENDPOINT_TYPE_ISOCHRONOUS,        /* bmAttributes */
+  0x03, 0x00,                           /* wMaxPacketSize in Bytes */
   0x01,                                 /* bInterval */
   0x00,                                 /* bRefresh */
   0x00,                                 /* bSynchAddress */
@@ -669,6 +692,8 @@ static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
   return USBD_OK;
 }
 
+#include "stm324xg_eval.h"
+
 /**
   * @brief  usbd_audio_DataIn
   *         Handles the audio IN data stage.
@@ -678,22 +703,28 @@ static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
   */
 static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
 {
-  uint8_t *next;
-
-  DCD_EP_Flush(pdev, AUDIO_IN_EP);
-
-  next = um_handle_in_dequeue(in_handle);
-
-  if(next == NULL)
+  if(epnum == AUDIO_IN_EP)
   {
-    next = null_data;
-  } else if (next == 0xFFFFFFFF)
-  {
-    return USBD_OK;
+    uint8_t *next;
+
+    DCD_EP_Flush(pdev, AUDIO_IN_EP);
+
+    next = um_handle_in_dequeue(in_handle);
+
+    if(next == NULL)
+    {
+      next = null_data;
+    } else if (next == 0xFFFFFFFF)
+    {
+      return USBD_OK;
+    }
+
+    DCD_EP_Tx(pdev, AUDIO_IN_EP, next, in_handle->um_usb_packet_size);
   }
-
-  DCD_EP_Tx(pdev, AUDIO_IN_EP, next, in_handle->um_usb_packet_size);
-
+  else if (epnum == AUDIO_IN_FEEDBACK_EP)
+  {
+    STM_EVAL_LEDToggle(LED1);
+  }
   return USBD_OK;
 }
 
@@ -757,6 +788,7 @@ static uint8_t  usbd_audio_OUT_Incplt (void  *pdev)
 
 static uint8_t  usbd_audio_IN_Incplt (void  *pdev)
 {
+  STM_EVAL_LEDToggle(LED2);
   return USBD_OK;
 }
 
