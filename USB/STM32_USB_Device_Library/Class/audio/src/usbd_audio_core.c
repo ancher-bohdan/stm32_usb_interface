@@ -492,30 +492,11 @@ static uint8_t  MuteCtl      (uint8_t cmd)
 static uint8_t  usbd_audio_Init (void  *pdev, 
                                  uint8_t cfgidx)
 {
-  /* Open EP OUT */
-  DCD_EP_Open(pdev,
-              AUDIO_OUT_EP,
-              AUDIO_OUT_PACKET,
-              USB_OTG_EP_ISOC);
-
-  /* Open EP IN */
-  DCD_EP_Open(pdev,
-              AUDIO_IN_EP,
-              AUDIO_IN_PACKET,
-              USB_OTG_EP_ISOC);
-  
   /* Initialize the Audio output Hardware layer */
   if (Init(USBD_AUDIO_FREQ, DEFAULT_VOLUME, 0) != USBD_OK)
   {
     return USBD_FAIL;
   }
-
-  /* Prepare Out endpoint to receive audio data */
-  DCD_EP_PrepareRx(pdev,
-                   AUDIO_OUT_EP,
-                   audio_handle->um_start->um_buf,                        
-                   AUDIO_OUT_PACKET);
-  
   return USBD_OK;
 }
 
@@ -528,10 +509,7 @@ static uint8_t  usbd_audio_Init (void  *pdev,
 */
 static uint8_t  usbd_audio_DeInit (void  *pdev, 
                                    uint8_t cfgidx)
-{ 
-  DCD_EP_Close (pdev , AUDIO_IN_EP);
-  DCD_EP_Close (pdev , AUDIO_OUT_EP);
-
+{
   free_um_buffer_handle(in_handle);
   free_um_buffer_handle(audio_handle);
   
@@ -610,16 +588,49 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
       {
         usbd_audio_AltSet[req->wIndex] = (uint8_t)(req->wValue);
 
-        if(req->wIndex <= 1) break;
+        switch(req->wIndex)
+        {
+          case 1:
+            /* Speaker interface */
+            if(req->wValue == 1)
+            {
+              /* Open EP OUT */
+              DCD_EP_Open(pdev,
+                          AUDIO_OUT_EP,
+                          AUDIO_OUT_PACKET,
+                          USB_OTG_EP_ISOC);
 
-        if (usbd_audio_AltSet[req->wIndex] == 0)
-        {
-          um_handle_in_pause(in_handle);
-          DCD_EP_Flush (pdev,AUDIO_IN_EP);
-        }
-        else
-        {
-          um_handle_in_trigger_resume(in_handle);
+              /* Prepare Out endpoint to receive audio data */
+              DCD_EP_PrepareRx(pdev,
+                              AUDIO_OUT_EP,
+                              audio_handle->um_start->um_buf,
+                              AUDIO_OUT_PACKET);
+            }
+            else if(req->wValue == 0)
+            {
+              DCD_EP_Close (pdev , AUDIO_OUT_EP);
+            }
+          break;
+          case 2:
+            /* Microphone interface */
+            if(req->wValue == 0)
+            {
+              um_handle_in_pause(in_handle);
+              DCD_EP_Flush (pdev,AUDIO_IN_EP);
+              DCD_EP_Close (pdev , AUDIO_IN_EP);
+            }
+            else if(req->wValue == 1)
+            {
+              /* Open EP IN */
+              DCD_EP_Open(pdev,
+                          AUDIO_IN_EP,
+                          AUDIO_IN_PACKET,
+                          USB_OTG_EP_ISOC);
+              um_handle_in_trigger_resume(in_handle);
+            }
+          break;
+          default:
+          break;
         }
       }
       else
