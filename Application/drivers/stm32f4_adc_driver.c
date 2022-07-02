@@ -32,7 +32,7 @@ static void ADC_DriverInit(void)
 
     ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
     ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T2_TRGO;
+    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T3_TRGO;
     ADC_InitStructure.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Rising;
     ADC_InitStructure.ADC_NbrOfConversion = 1;
     ADC_InitStructure.ADC_Resolution = ADC_Resolution_12b;
@@ -90,23 +90,23 @@ static void TIM_ADC_Init()
     TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
     TIM_OCInitTypeDef  TIM_OCInitStructure;
 
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
 
     /* Time base configuration */
     TIM_TimeBaseStructure.TIM_Period = 1749;
     TIM_TimeBaseStructure.TIM_Prescaler = 0;
     TIM_TimeBaseStructure.TIM_ClockDivision = 0;
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure);
+    TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
 
-    TIM_SelectOutputTrigger(TIM2, TIM_TRGOSource_Update);
+    TIM_SelectOutputTrigger(TIM3, TIM_TRGOSource_Update);
 
     /* PWM1 Mode configuration: Channel1 */
     TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;
     TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
     TIM_OCInitStructure.TIM_Pulse = 0;
     TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-    TIM_OC1Init(TIM2, &TIM_OCInitStructure);
+    TIM_OC1Init(TIM3, &TIM_OCInitStructure);
 }
 
 void adc_init(void)
@@ -140,7 +140,7 @@ void adc_start(uint16_t *samples_buffer, uint32_t samples_number)
     DMA_DoubleBufferModeConfig(DMA2_Stream0, (uint32_t)(samples_buffer + (samples_number >> 1)), DMA_Memory_0);
     DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_HTIF0 | DMA_IT_TCIF0);
     DMA_Cmd(DMA2_Stream0, ENABLE);
-    TIM_Cmd(TIM2, ENABLE);
+    TIM_Cmd(TIM3, ENABLE);
 }
 
 void adc_sampling_wrapper(uint32_t samples, uint32_t size)
@@ -153,7 +153,7 @@ uint32_t adc_pause(uint32_t cmd, uint32_t addr, uint32_t size)
   if(cmd == 0)
   {
     DMA_Cmd(DMA2_Stream0, DISABLE);
-    TIM_Cmd(TIM2, DISABLE);
+    TIM_Cmd(TIM3, DISABLE);
     DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_HTIF0 | DMA_IT_TCIF0);
   }
   else if(cmd == 1)
