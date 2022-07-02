@@ -76,6 +76,8 @@
 #include "audio_buffer.h"
 #include "stm324xg_usb_audio_codec.h"
 #include "stm32f4_adc_driver.h"
+#include "stm32f4_tim_usb_fb.h"
+#include "stm324xg_eval.h"
 
 #include <stdlib.h>
 
@@ -617,10 +619,16 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
             /* Speaker interface */
             if(req->wValue == 1)
             {
+              TIM_FB_Start();
               /* Open EP OUT */
               DCD_EP_Open(pdev,
                           AUDIO_OUT_EP,
                           AUDIO_OUT_PACKET,
+                          USB_OTG_EP_ISOC);
+              /* Open Feedback EP IN */
+              DCD_EP_Open(pdev,
+                          AUDIO_IN_FEEDBACK_EP,
+                          3,
                           USB_OTG_EP_ISOC);
 
               /* Prepare Out endpoint to receive audio data */
@@ -631,6 +639,9 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
             }
             else if(req->wValue == 0)
             {
+              TIM_FB_Stop();
+              DCD_EP_Flush(pdev, AUDIO_IN_FEEDBACK_EP);
+              DCD_EP_Close(pdev, AUDIO_IN_FEEDBACK_EP);
               DCD_EP_Close (pdev , AUDIO_OUT_EP);
             }
           break;
@@ -721,9 +732,10 @@ static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
 
     DCD_EP_Tx(pdev, AUDIO_IN_EP, next, in_handle->um_usb_packet_size);
   }
-  else if (epnum == AUDIO_IN_FEEDBACK_EP)
+  else if (epnum == (AUDIO_IN_FEEDBACK_EP & 0x7F))
   {
     STM_EVAL_LEDToggle(LED1);
+    DCD_EP_Flush(pdev, AUDIO_IN_FEEDBACK_EP);
   }
   return USBD_OK;
 }
@@ -788,7 +800,7 @@ static uint8_t  usbd_audio_OUT_Incplt (void  *pdev)
 
 static uint8_t  usbd_audio_IN_Incplt (void  *pdev)
 {
-  STM_EVAL_LEDToggle(LED2);
+  DCD_EP_Flush(pdev, AUDIO_IN_FEEDBACK_EP);
   return USBD_OK;
 }
 
