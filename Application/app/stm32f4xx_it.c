@@ -195,18 +195,6 @@ void EXTI1_IRQHandler(void)
 {
 }
 
-void DMA1_Stream5_IRQHandler(void)
-{
-  if(DMA_GetITStatus(DMA1_Stream5, DMA_IT_HTIF5))
-  {
-          DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_HTIF5);
-  }
-  else if (DMA_GetITStatus(DMA1_Stream5, DMA_IT_TCIF5))
-  {
-          DMA_ClearITPendingBit(DMA1_Stream5, DMA_IT_TCIF5);
-  }
-}
-
 void DMA1_Stream3_IRQHandler(void)
 {
   if(DMA_GetITStatus(DMA1_Stream3, DMA_IT_HTIF3))
