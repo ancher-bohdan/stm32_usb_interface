@@ -58,8 +58,8 @@
   * @{
   */
 #define AUDIO_OUT_EP                    0x01
-#define AUDIO_IN_EP                     0x81
-#define AUDIO_IN_FEEDBACK_EP            0x82
+#define AUDIO_IN_EP                     0x82
+#define AUDIO_IN_FEEDBACK_EP            0x81
 /* !!!!!!!!!!!!!!!!!!!!!!!!! IMPORTAND !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * According to USB 2.0 spec the association between OUT EP and feedback EP
  * is based on ep maching number. So, any Isochronous EP should have a same
