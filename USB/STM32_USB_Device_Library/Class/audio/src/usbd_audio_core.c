@@ -355,7 +355,7 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   USB_ENDPOINT_USAGE_FEEDBACK | 
   USB_ENDPOINT_TYPE_ISOCHRONOUS,        /* bmAttributes */
   0x03, 0x00,                           /* wMaxPacketSize in Bytes */
-  0x01,                                 /* bInterval */
+  0x02,                                 /* bInterval */
   0x00,                                 /* bRefresh */
   0x00,                                 /* bSynchAddress */
   /* 09 byte*/
@@ -703,7 +703,7 @@ static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
   */
 static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
 {
-  if(epnum == AUDIO_IN_EP)
+  if(epnum == (AUDIO_IN_EP & 0x7f))
   {
     uint8_t *next;
 

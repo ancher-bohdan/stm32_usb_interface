@@ -1,10 +1,12 @@
 #include "stm32f4xx.h"
 #include "stm324xg_eval.h"
 #include "stm32f4_adc_driver.h"
+#include "stm32f4_tim_usb_fb.h"
 
 #include "usbd_audio_core.h"
 #include "usbd_usr.h"
 #include "usb_conf.h"
+#include "usbd_conf.h"
 
 #include "dsp.h"
 
@@ -25,6 +27,12 @@ void USBAudioInit()
             USB_OTG_FS_CORE_ID, 
 #endif
             &USR_desc, &AUDIO_cb, &USR_cb);
+}
+
+static void send_mclk_to_sof_ratio_feedback(uint32_t feedback)
+{
+  uint32_t mclk_to_sof_ratio = feedback;
+  DCD_EP_Tx(&USB_OTG_dev, AUDIO_IN_FEEDBACK_EP, (uint8_t *)&mclk_to_sof_ratio, 3);
 }
 
 int main(void)
@@ -50,6 +58,9 @@ int main(void)
 
   adc_init();
   adc_on();
+
+  TIM_FB_Init();
+  TIM_FB_Set_trigger_fb_transaction_callback(send_mclk_to_sof_ratio_feedback);
 
   USBAudioInit();
 
