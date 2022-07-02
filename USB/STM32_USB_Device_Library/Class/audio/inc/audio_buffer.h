@@ -8,9 +8,17 @@
 #define CW_LOWER_BOUND                      1
 #define CW_UPPER_BOUND                      3
 
+#define UM_BUFFER_CONFIG_LISTENERS_EN       0x01
+#define UM_BUFFER_CONFIG_CA_NONE            0x00
+#define UM_BUFFER_CONFIG_CA_DROP_HALF_PKT   0x02
+#define UM_BUFFER_CONFIG_CA_FEEDBACK        0x04
+
 #define UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY 0x4
 #define UM_BUFFER_FLAG_CONGESTION_AVIODANCE 0x2
 #define UM_BUFFER_FLAG_HALF_USB_FRAME       0x1
+
+#define GET_CONFIG_LISTENERS_EN(config)     ((config) & UM_BUFFER_CONFIG_LISTENERS_EN)
+#define GET_CONFIG_CA_ALGORITM(config)      ((config) & (UM_BUFFER_CONFIG_CA_DROP_HALF_PKT | UM_BUFFER_CONFIG_CA_FEEDBACK))
 
 #define GET_BUF_LISTENERS_NEMPTY_FLAG(flag) ((flag) & UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY)
 #define GET_CONGESTION_AVOIDANCE_FLAG(flag) ((flag) & UM_BUFFER_FLAG_CONGESTION_AVIODANCE)
@@ -45,7 +53,7 @@ struct um_node
 {
     uint8_t *um_buf;
     struct um_node *next;
-    uint8_t um_node_offset;
+    uint32_t um_node_offset;
     enum um_node_state um_node_state;
 };
 
@@ -69,11 +77,15 @@ struct um_buffer_handle
     uint32_t um_usb_packet_size;
     uint16_t um_usb_frame_in_node;
     uint16_t um_number_of_nodes;
+    uint32_t um_abs_offset;
+
+    uint32_t um_buffer_size_in_one_node;
+    uint32_t total_buffer_size;
 
     enum um_buffer_state um_buffer_state;
-    uint8_t um_abs_offset;
     uint8_t um_buffer_flags;
-    struct um_buffer_listener listeners[UM_BUFFER_LISTENER_COUNT];
+    uint8_t um_buffer_config;
+    struct um_buffer_listener *listeners;
 
     void (*um_play)(uint32_t addr, uint32_t size);
     uint32_t (*um_pause_resume)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
@@ -93,8 +105,9 @@ int um_handle_init( struct um_buffer_handle *handle,
                     uint32_t usb_packet_size,
                     uint32_t usb_frame_in_um_node_count,
                     uint32_t um_node_count,
+                    uint8_t configs,
                     um_play_fnc play, um_pause_resume_fnc pause_resume );
-uint8_t *um_handle_enqueue(struct um_buffer_handle *handle);
+uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size);
 void audio_dma_complete_cb(struct um_buffer_handle *handle);
 
 void um_buffer_handle_register_listener(struct um_buffer_handle *handle, int16_t *sample, uint16_t size, listener_job_finish job_finish_cbk, void *arg);

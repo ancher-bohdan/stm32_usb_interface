@@ -24,29 +24,23 @@ static void usb_data_ready(void *arg)
 
 void um_handle_in_trigger_resume(struct um_buffer_handle *handle)
 {
-    uint8_t i = 0;
-    for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
-    {
-        if(handle->listeners[i].samples_required == 0)
-        {
-            handle->listeners[i].samples_required = 1;
-            TOGGLE_BUF_LISTENERS_NEMPTY_FLAG(handle->um_buffer_flags);
-            return;
-        }
-    }
-    while(1) {}
+    um_buffer_handle_register_listener(handle, NULL, 1, NULL, NULL);
+    TOGGLE_BUF_LISTENERS_NEMPTY_FLAG(handle->um_buffer_flags);
 }
 
 uint8_t *um_handle_in_event_dispatcher(struct um_buffer_handle *handle)
 {
-    uint8_t i = 0;
     if(GET_BUF_LISTENERS_NEMPTY_FLAG(handle->um_buffer_flags))
     {
-        for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
+        uint8_t i = 0;
+        struct um_buffer_listener *listener;
+        for(listener = handle->listeners, i = 0;
+            i < UM_BUFFER_LISTENER_COUNT;
+            i++, listener += i)
         {
-            if(handle->listeners[i].samples_required != 0)
+            if(listener->samples_required != 0)
             {
-                handle->listeners[i].samples_required = 0;
+                listener->samples_required = 0;
                 TOGGLE_BUF_LISTENERS_NEMPTY_FLAG(handle->um_buffer_flags);
                 return um_handle_in_resume(handle);
             }
@@ -100,7 +94,7 @@ uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
 {
     if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
-        if(handle->um_abs_offset < ((handle->um_number_of_nodes * handle->um_usb_frame_in_node) >> 2))
+        if(handle->um_abs_offset < ((uint16_t)(handle->um_number_of_nodes * handle->um_usb_frame_in_node) >> 2))
         {
             return handle->um_start->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
         }

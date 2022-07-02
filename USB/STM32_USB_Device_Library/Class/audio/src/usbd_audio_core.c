@@ -484,8 +484,8 @@ static uint8_t  Init         (uint32_t AudioFreq,
   audio_handle = (struct um_buffer_handle *)malloc(sizeof(struct um_buffer_handle));
   in_handle = (struct um_buffer_handle *)malloc(sizeof(struct um_buffer_handle));
   
-  res += um_handle_init(audio_handle, AUDIO_OUT_PACKET, 4, 4, Audio_MAL_Play, EVAL_AUDIO_PauseResume);
-  res += um_handle_init(in_handle, AUDIO_IN_PACKET, 4, 4, adc_sampling_wrapper, adc_pause);
+  res += um_handle_init(audio_handle, AUDIO_OUT_PACKET, 4, 4, UM_BUFFER_CONFIG_CA_DROP_HALF_PKT, Audio_MAL_Play, EVAL_AUDIO_PauseResume);
+  res += um_handle_init(in_handle, AUDIO_IN_PACKET, 4, 4, UM_BUFFER_CONFIG_CA_NONE | UM_BUFFER_CONFIG_LISTENERS_EN, adc_sampling_wrapper, adc_pause);
 
   return res;
 }
@@ -751,7 +751,16 @@ static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
 {
   if (epnum == AUDIO_OUT_EP)
   {
-    uint8_t *next = um_handle_enqueue(audio_handle);
+    uint16_t real_len = USBD_GetRxCount(pdev, epnum);
+    uint8_t *next = um_handle_enqueue(audio_handle, real_len);
+    if(real_len < AUDIO_OUT_PACKET)
+    {
+      STM_EVAL_LEDToggle(LED2);
+    }
+    else if(real_len > AUDIO_OUT_PACKET)
+    {
+      STM_EVAL_LEDToggle(LED3);
+    }
     if(next == NULL)
     {
       return USBD_FAIL;
