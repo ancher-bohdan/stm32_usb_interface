@@ -212,20 +212,19 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
     uint8_t cw;
     uint8_t *result = NULL;
 
-    if((handle->um_write->um_node_offset == 0) && !GET_HALF_USB_FRAME_FLAG(handle->um_buffer_flags))
-    {
-        if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
-        {
-            /* Buffer overflow
-            shouldn`t be here
-            */
-           return result;
-        }
-        handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
-    }
     switch(GET_CONFIG_CA_ALGORITM(handle->um_buffer_config))
     {
         case UM_BUFFER_CONFIG_CA_NONE:
+            if(handle->um_write->um_node_offset == 0)
+            {
+                if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
+                {
+                    /* Buffer overflow */
+                    return result;
+                }
+                handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
+            }
+
             if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->um_start->um_buf + (handle->um_abs_offset * handle->um_usb_packet_size)), handle->um_usb_packet_size >> 2);
 
             handle->um_abs_offset = (handle->um_abs_offset + 1) % handle->total_buffer_size;
@@ -240,6 +239,18 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
         break;/* UM_BUFFER_CONFIG_CA_NONE */
 
         case UM_BUFFER_CONFIG_CA_DROP_HALF_PKT:
+            if((handle->um_write->um_node_offset == 0) && !GET_HALF_USB_FRAME_FLAG(handle->um_buffer_flags))
+            {
+                if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
+                {
+                    /* Buffer overflow
+                    shouldn`t be here
+                    */
+                    return result;
+                }
+                handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
+            }
+
             if(!GET_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags))
             {
                 if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->um_start->um_buf + (handle->um_abs_offset * handle->um_usb_packet_size)), handle->um_usb_packet_size >> 2);
@@ -303,7 +314,63 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
         break; /* UM_BUFFER_CONFIG_CA_DROP_HALF_PKT */
 
         case UM_BUFFER_CONFIG_CA_FEEDBACK:
-            // TODO: implement me
+            handle->um_write->um_node_offset += pkt_size;
+
+            if(handle->um_write->um_node_offset >= handle->um_buffer_size_in_one_node)
+            {
+                if(handle->um_write->next->um_node_state != UM_NODE_STATE_FREE)
+                {
+                    /* buffer overflow; shouldn`t be here.... */
+                    /* reset offsets; in case of user deside to drop this packet */
+                    handle->um_write->um_node_offset -= pkt_size;
+                    return GET_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags) ? handle->congestion_avoidance_bucket : result;
+                }
+                handle->um_write->next->um_node_offset = handle->um_write->um_node_offset % handle->um_buffer_size_in_one_node;
+                handle->um_write->um_node_offset = 0;
+                handle->um_write->um_node_state = UM_NODE_STATE_READY;
+                handle->um_write = handle->um_write->next;
+                handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
+            }
+
+            if(!GET_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags))
+            {
+                handle->um_abs_offset += pkt_size;
+                handle->um_abs_offset %= handle->total_buffer_size;
+
+                if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->um_start->um_buf + handle->um_abs_offset), pkt_size >> 2);
+
+                if(handle->um_abs_offset + handle->um_usb_packet_size > handle->total_buffer_size)
+                {
+                    TOGGLE_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags);
+                    result = handle->congestion_avoidance_bucket;
+                }
+                else
+                {
+                    result = handle->um_write->um_buf + handle->um_write->um_node_offset;
+                }
+            }
+            else /* fragmentation */
+            {
+                uint8_t remaining = handle->total_buffer_size - handle->um_abs_offset;
+
+                if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->congestion_avoidance_bucket), pkt_size >> 2);
+
+                memcpy(handle->um_start->um_buf + handle->um_abs_offset, handle->congestion_avoidance_bucket, remaining);
+
+                handle->um_abs_offset += pkt_size;
+                handle->um_abs_offset %= handle->total_buffer_size;
+
+                if(remaining <= pkt_size)
+                {
+                    memcpy(handle->um_start->um_buf, handle->congestion_avoidance_bucket + remaining, pkt_size - remaining);
+                    TOGGLE_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags);
+                    result = handle->um_start->um_buf + handle->um_abs_offset;
+                }
+                else
+                {
+                    result = handle->congestion_avoidance_bucket;
+                }
+            }
         break; /* UM_BUFFER_CONFIG_CA_FEEDBACK */
         default:
             /* failed args validation during buffer initialisation */
@@ -314,7 +381,7 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
 
     if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
-        if(handle->um_abs_offset == (handle->total_buffer_size >> 1))
+        if(handle->um_abs_offset >= (handle->total_buffer_size >> 1))
         {
             handle->um_start->um_node_state = UM_NODE_STATE_READER;
             if(handle->um_buffer_state == UM_BUFFER_STATE_INIT)

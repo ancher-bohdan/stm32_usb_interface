@@ -484,7 +484,7 @@ static uint8_t  Init         (uint32_t AudioFreq,
   audio_handle = (struct um_buffer_handle *)malloc(sizeof(struct um_buffer_handle));
   in_handle = (struct um_buffer_handle *)malloc(sizeof(struct um_buffer_handle));
   
-  res += um_handle_init(audio_handle, AUDIO_OUT_PACKET, 4, 4, UM_BUFFER_CONFIG_CA_DROP_HALF_PKT, Audio_MAL_Play, EVAL_AUDIO_PauseResume);
+  res += um_handle_init(audio_handle, AUDIO_OUT_PACKET, 4, 4, UM_BUFFER_CONFIG_CA_FEEDBACK, Audio_MAL_Play, EVAL_AUDIO_PauseResume);
   res += um_handle_init(in_handle, AUDIO_IN_PACKET, 4, 4, UM_BUFFER_CONFIG_CA_NONE | UM_BUFFER_CONFIG_LISTENERS_EN, adc_sampling_wrapper, adc_pause);
 
   return res;
