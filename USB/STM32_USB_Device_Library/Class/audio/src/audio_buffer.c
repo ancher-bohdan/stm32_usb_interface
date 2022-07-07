@@ -133,7 +133,15 @@ int um_handle_init( struct um_buffer_handle *handle,
     handle->um_number_of_nodes = um_node_count;
 
     // allocate memory for whole internal buffer; store pointer to it here temporary
-    handle->congestion_avoidance_bucket = (uint8_t *)malloc(usb_packet_size * usb_frame_in_um_node_count * um_node_count);
+    if(GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_NONE)
+    {
+        handle->congestion_avoidance_bucket = (uint8_t *)malloc((usb_packet_size * usb_frame_in_um_node_count * um_node_count) + usb_packet_size);
+    }
+    else
+    {
+        handle->congestion_avoidance_bucket = (uint8_t *)malloc((usb_packet_size * usb_frame_in_um_node_count * um_node_count));
+    }
+
     if(handle->congestion_avoidance_bucket == NULL)
     {
         return UM_ENOMEM;
@@ -152,11 +160,11 @@ int um_handle_init( struct um_buffer_handle *handle,
     //main buffer pointer was copied inside um_start struct; allocate new memory for CA algorithm (if it is nessesary)
     if(GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_NONE)
     {
-        handle->congestion_avoidance_bucket = (uint8_t *)malloc(handle->um_usb_packet_size);
-        if(handle->congestion_avoidance_bucket == NULL)
-        {
-            return UM_ENOMEM;
-        }
+        handle->congestion_avoidance_bucket += (usb_packet_size * usb_frame_in_um_node_count * um_node_count);
+    }
+    else
+    {
+        handle->congestion_avoidance_bucket = NULL;
     }
 
     handle->um_buffer_state = UM_BUFFER_STATE_INIT;
@@ -180,24 +188,12 @@ int um_handle_init( struct um_buffer_handle *handle,
 
     if(GET_CONFIG_LISTENERS_EN(config) == UM_BUFFER_CONFIG_LISTENERS_EN)
     {
-        uint8_t i = 0;
-        struct um_buffer_listener *listener;
         handle->listeners = (struct um_buffer_listener *)malloc(sizeof(struct um_buffer_listener) * UM_BUFFER_LISTENER_COUNT);
         if(handle->listeners == NULL)
         {
             return UM_ENOMEM;
         }
-        listener = handle->listeners;
-
-        for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
-        {
-            listener->dst_offset = 0;
-            listener->dst = NULL;
-            listener->listener_finish = NULL;
-            listener->args = NULL;
-            listener->samples_required = 0;
-            listener += i;
-        }
+        memset(handle->listeners, 0, sizeof(struct um_buffer_listener) * UM_BUFFER_LISTENER_COUNT);
     }
     else
     {
@@ -314,7 +310,9 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
         break; /* UM_BUFFER_CONFIG_CA_DROP_HALF_PKT */
 
         case UM_BUFFER_CONFIG_CA_FEEDBACK:
+            if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->um_start->um_buf + handle->um_abs_offset), pkt_size >> 2);
             handle->um_write->um_node_offset += pkt_size;
+            handle->um_abs_offset += pkt_size;
 
             if(handle->um_write->um_node_offset >= handle->um_buffer_size_in_one_node)
             {
@@ -323,7 +321,8 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
                     /* buffer overflow; shouldn`t be here.... */
                     /* reset offsets; in case of user deside to drop this packet */
                     handle->um_write->um_node_offset -= pkt_size;
-                    return GET_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags) ? handle->congestion_avoidance_bucket : result;
+                    handle->um_abs_offset -= pkt_size;
+                    return result;
                 }
                 handle->um_write->next->um_node_offset = handle->um_write->um_node_offset % handle->um_buffer_size_in_one_node;
                 handle->um_write->um_node_offset = 0;
@@ -332,45 +331,14 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
                 handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
             }
 
-            if(!GET_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags))
+            if(handle->um_abs_offset > handle->total_buffer_size)
             {
-                handle->um_abs_offset += pkt_size;
-                handle->um_abs_offset %= handle->total_buffer_size;
-
-                if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->um_start->um_buf + handle->um_abs_offset), pkt_size >> 2);
-
-                if(handle->um_abs_offset + handle->um_usb_packet_size > handle->total_buffer_size)
-                {
-                    TOGGLE_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags);
-                    result = handle->congestion_avoidance_bucket;
-                }
-                else
-                {
-                    result = handle->um_write->um_buf + handle->um_write->um_node_offset;
-                }
+                memcpy(handle->um_write->um_buf, handle->congestion_avoidance_bucket, handle->um_abs_offset - handle->total_buffer_size);
             }
-            else /* fragmentation */
-            {
-                uint8_t remaining = handle->total_buffer_size - handle->um_abs_offset;
 
-                if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) send_sample_to_registered_listeners(handle, (struct usb_sample_struct *)(handle->congestion_avoidance_bucket), pkt_size >> 2);
+            handle->um_abs_offset %= handle->total_buffer_size;
 
-                memcpy(handle->um_start->um_buf + handle->um_abs_offset, handle->congestion_avoidance_bucket, remaining);
-
-                handle->um_abs_offset += pkt_size;
-                handle->um_abs_offset %= handle->total_buffer_size;
-
-                if(remaining <= pkt_size)
-                {
-                    memcpy(handle->um_start->um_buf, handle->congestion_avoidance_bucket + remaining, pkt_size - remaining);
-                    TOGGLE_FRAGMENTATION_NEEDED_FLAG(handle->um_buffer_flags);
-                    result = handle->um_start->um_buf + handle->um_abs_offset;
-                }
-                else
-                {
-                    result = handle->congestion_avoidance_bucket;
-                }
-            }
+            result = handle->um_write->um_buf + handle->um_write->um_node_offset;
         break; /* UM_BUFFER_CONFIG_CA_FEEDBACK */
         default:
             /* failed args validation during buffer initialisation */
@@ -479,7 +447,6 @@ void free_um_buffer_handle(struct um_buffer_handle *handle)
 
     while (handle->um_buffer_state == UM_BUFFER_STATE_PLAY && timeout--);
 
-    if(GET_CONFIG_CA_ALGORITM(handle->um_buffer_config)) free(handle->congestion_avoidance_bucket);
     free(handle->um_start->um_buf);
     _free_um_nodes(handle->um_start->next, handle->um_start);
     if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) free(handle->listeners);
