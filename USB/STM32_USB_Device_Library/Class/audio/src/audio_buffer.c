@@ -203,6 +203,7 @@ int um_handle_init( struct um_buffer_handle *handle,
     return UM_EOK;
 }
 
+uint8_t test_flag_work = 0;
 uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
 {
     uint8_t cw;
@@ -339,6 +340,31 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
             handle->um_abs_offset %= handle->total_buffer_size;
 
             result = handle->um_write->um_buf + handle->um_write->um_node_offset;
+
+            if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
+            {
+                handle->um_buffer_flags &= (~UM_BUFFER_FLAG_CONGESTION_AVIODANCE);
+                break;
+            }
+
+            cw = get_congestion_window(handle->um_write->next);
+
+            if(GET_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags))
+            {
+                if((cw == CW_LOWER_BOUND))
+                {
+                    TOGGLE_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags);
+                    test_flag_work = 0;
+                }
+            }
+            else
+            {
+                if(cw == CW_UPPER_BOUND)
+                {
+                    TOGGLE_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags);
+                    test_flag_work = 1;
+                }
+            }
         break; /* UM_BUFFER_CONFIG_CA_FEEDBACK */
         default:
             /* failed args validation during buffer initialisation */
@@ -398,6 +424,7 @@ void audio_dma_complete_cb(struct um_buffer_handle *handle)
         handle->um_write = handle->um_read = handle->um_start;
         handle->um_buffer_state = UM_BUFFER_STATE_READY;
         handle->um_abs_offset = 0;
+        test_flag_work = 0;
 
         if(GET_CONFIG_LISTENERS_EN(handle->um_buffer_config)) flush_all_listeners(handle);
         break;

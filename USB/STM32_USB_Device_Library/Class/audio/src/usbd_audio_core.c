@@ -757,10 +757,6 @@ static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
     {
       STM_EVAL_LEDToggle(LED2);
     }
-    else if(real_len > AUDIO_OUT_PACKET)
-    {
-      STM_EVAL_LEDToggle(LED3);
-    }
     if(next == NULL)
     {
       return USBD_FAIL;

@@ -29,9 +29,11 @@ void USBAudioInit()
             &USR_desc, &AUDIO_cb, &USR_cb);
 }
 
+extern uint8_t test_flag_work;
+
 static void send_mclk_to_sof_ratio_feedback(uint32_t feedback)
 {
-  uint32_t mclk_to_sof_ratio = feedback;
+  uint32_t mclk_to_sof_ratio = test_flag_work == 0 ? feedback : 0x600000;
   DCD_EP_Tx(&USB_OTG_dev, AUDIO_IN_FEEDBACK_EP, (uint8_t *)&mclk_to_sof_ratio, 3);
 }
 
