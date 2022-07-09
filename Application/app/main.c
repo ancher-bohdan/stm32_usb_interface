@@ -35,6 +35,7 @@ static void send_mclk_to_sof_ratio_feedback(uint32_t feedback)
 {
   uint32_t mclk_to_sof_ratio = test_flag_work == 0 ? feedback : 0x600000;
   DCD_EP_Tx(&USB_OTG_dev, AUDIO_IN_FEEDBACK_EP, (uint8_t *)&mclk_to_sof_ratio, 3);
+  USB_OTG_dev.dev.in_ep[1].even_odd_frame = USB_OTG_dev.dev.in_ep[1].even_odd_frame ? 0 : 1;
 }
 
 int main(void)

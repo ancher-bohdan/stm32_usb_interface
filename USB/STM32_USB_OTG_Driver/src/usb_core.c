@@ -1633,7 +1633,6 @@ USB_OTG_STS USB_OTG_EPStartXfer(USB_OTG_CORE_HANDLE *pdev , USB_OTG_EP *ep)
   USB_OTG_STS status = USB_OTG_OK;
   USB_OTG_DEPCTL_TypeDef     depctl;
   USB_OTG_DEPXFRSIZ_TypeDef  deptsiz;
-  USB_OTG_DSTS_TypeDef       dsts;
   uint32_t fifoemptymsk = 0;
 
   depctl.d32 = 0;
@@ -1686,9 +1685,7 @@ USB_OTG_STS USB_OTG_EPStartXfer(USB_OTG_CORE_HANDLE *pdev , USB_OTG_EP *ep)
 
     if (ep->type == EP_TYPE_ISOC)
     {
-      dsts.d32 = USB_OTG_READ_REG32(&pdev->regs.DREGS->DSTS);
-
-      if (((dsts.b.soffn)&0x1) == 0)
+      if (ep->even_odd_frame)
       {
         depctl.b.setd1pid = 1;
       }

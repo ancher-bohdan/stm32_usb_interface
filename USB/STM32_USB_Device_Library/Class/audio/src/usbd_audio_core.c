@@ -730,6 +730,9 @@ static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
       return USBD_OK;
     }
 
+    ((USB_OTG_CORE_HANDLE*)pdev)->dev.in_ep[epnum & 0x7f].even_odd_frame =
+      (((USB_OTG_CORE_HANDLE*)pdev)->dev.in_ep[epnum & 0x7f].even_odd_frame)? 0:1;
+
     DCD_EP_Tx(pdev, AUDIO_IN_EP, next, in_handle->um_usb_packet_size);
   }
   else if (epnum == (AUDIO_IN_FEEDBACK_EP & 0x7F))
