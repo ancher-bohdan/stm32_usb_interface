@@ -56,7 +56,7 @@
 /* Total size of the audio transfer buffer */
 #define TOTAL_OUT_BUF_SIZE                           ((uint32_t)(AUDIO_OUT_PACKET * OUT_PACKET_NUM))
 
-#define AUDIO_CONFIG_DESC_SIZE                        199
+#define AUDIO_CONFIG_DESC_SIZE                        208
 #define AUDIO_INTERFACE_DESC_SIZE                     9
 #define USB_AUDIO_DESC_SIZ                            0x09
 #define AUDIO_STANDARD_ENDPOINT_DESC_SIZE             0x09
@@ -98,6 +98,7 @@
 #define AUDIO_REQ_SET_CUR                             0x01
 
 #define AUDIO_OUT_FEATURE_UNIT_ID                     0x04
+#define AUDIO_IN_FEATURE_UNIT_ID                      0x06
 
 /**
   * @}

@@ -81,6 +81,7 @@ static arm_fir_instance_f32 fir;
 
 float fir_states[FILTER_TAP_NUM + (2 * SAMPLES_SIZE) - 1];
 float tmp[2][SAMPLES_SIZE];
+float32_t scale = 4;
 
 void dsp_init(void)
 {
@@ -113,7 +114,7 @@ void dsp_process()
     arm_q15_to_float(dsp_request[read].pSamples, &(tmp[0][0]), SAMPLES_SIZE);
 
     arm_fir_f32(&fir, &(tmp[0][0]), &(tmp[1][0]), SAMPLES_SIZE);
-    arm_scale_f32(&(tmp[1][0]), 4, &(tmp[0][0]), SAMPLES_SIZE);
+    arm_scale_f32(&(tmp[1][0]), scale, &(tmp[0][0]), SAMPLES_SIZE);
 
     arm_float_to_q15(&(tmp[0][0]), dsp_request[read].pSamples, SAMPLES_SIZE);
 
@@ -122,5 +123,10 @@ void dsp_process()
     dsp_request[read].pSamples = NULL;
     read = (read + 1) % CALC_REQUEST_BUFFER_SIZE;
 
+}
+
+void dsp_mute(uint8_t cmd)
+{
+  scale = cmd == 1 ? 0 : 4;
 }
 

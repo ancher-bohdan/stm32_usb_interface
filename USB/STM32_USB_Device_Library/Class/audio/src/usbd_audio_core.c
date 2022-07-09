@@ -207,7 +207,7 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   AUDIO_CONTROL_HEADER,                 /* bDescriptorSubtype */
   0x00,          /* 1.00 */             /* bcdADC */
   0x01,
-  0x3C,                                 /* wTotalLength = 60*/
+  0x45,                                 /* wTotalLength = 69*/
   0x00,
   0x02,                                 /* bInCollection */
   0x01,                                 /* baInterfaceNr(1) - OUT */
@@ -230,7 +230,7 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   /* 12 byte*/
   
   /*USB Microphone Output Terminal Descriptor */
-  0x09,      /* bLength */
+  0x09,                                 /* bLength */
   AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
   AUDIO_CONTROL_OUTPUT_TERMINAL,        /* bDescriptorSubtype */
   0x02,                                 /* bTerminalID */
@@ -238,6 +238,18 @@ static uint8_t usbd_audio_CfgDesc[AUDIO_CONFIG_DESC_SIZE] =
   0x01,
   0x00,                                 /* bAssocTerminal */
   0x01,                                 /* bSourceID */
+  0x00,                                 /* iTerminal */
+  /* 09 byte*/
+
+  /* USB Microphone Audio Feature Unit Descriptor */
+  0x09,                                 /* bLength */
+  AUDIO_INTERFACE_DESCRIPTOR_TYPE,      /* bDescriptorType */
+  AUDIO_CONTROL_FEATURE_UNIT,           /* bDescriptorSubtype */
+  AUDIO_IN_FEATURE_UNIT_ID,             /* bUnitID */
+  0x01,                                 /* bSourceID */
+  0x01,                                 /* bControlSize */
+  AUDIO_CONTROL_MUTE,                   /* bmaControls(0) */
+  0x00,                                 /* bmaControls(1) */
   0x00,                                 /* iTerminal */
   /* 09 byte*/
 
@@ -696,6 +708,12 @@ static uint8_t  usbd_audio_EP0_RxReady (void  *pdev)
       MuteCtl(AudioCtl[0]);
       
       /* Reset the AudioCtlCmd variable to prevent re-entering this function */
+      AudioCtlCmd = 0;
+      AudioCtlLen = 0;
+    }
+    else if (AudioCtlUnit == AUDIO_IN_FEATURE_UNIT_ID)
+    {
+      dsp_mute(AudioCtl[0]);
       AudioCtlCmd = 0;
       AudioCtlLen = 0;
     }
