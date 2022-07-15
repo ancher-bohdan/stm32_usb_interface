@@ -10,11 +10,11 @@ static void usb_data_ready(void *arg)
     struct um_buffer_handle *handle = (struct um_buffer_handle *)arg;
     uint32_t node_subbuf_count = handle->um_usb_frame_in_node * handle->um_number_of_nodes;
 
-    handle->um_write->um_node_state = UM_NODE_STATE_READY;
+    handle->cur_um_node_for_usb->um_node_state = UM_NODE_STATE_USB_FINISHED;
     handle->um_abs_offset = (handle->um_abs_offset + handle->um_usb_frame_in_node) % node_subbuf_count;
-    handle->um_write = handle->um_write->next;
+    handle->cur_um_node_for_usb = handle->cur_um_node_for_usb->next;
 
-    if(handle->um_write->um_node_state != UM_NODE_STATE_FREE)
+    if(handle->cur_um_node_for_usb->um_node_state != UM_NODE_STATE_HW_FINISHED)
     {
         //buffer overflow
         um_handle_in_pause(handle);
@@ -51,18 +51,18 @@ uint8_t *um_handle_in_event_dispatcher(struct um_buffer_handle *handle)
 
 void um_handle_in_pause(struct um_buffer_handle *handle)
 {
-    struct um_node *node = handle->um_start;
+    struct um_node *node = handle->start_um_node;
 
     do{
         node->um_node_offset = 0;
-        node->um_node_state = UM_NODE_STATE_FREE;
+        node->um_node_state = UM_NODE_STATE_HW_FINISHED;
         node = node->next;
-    }while(node != handle->um_start);
+    }while(node != handle->start_um_node);
 
-    handle->um_read = handle->um_write = handle->um_start;
+    handle->cur_um_node_for_hw = handle->cur_um_node_for_usb = handle->start_um_node;
     handle->um_abs_offset = 0;
 
-    handle->um_pause_resume(0, (uint32_t)handle->um_start->um_buf, 0);
+    handle->um_pause_resume(0, (uint32_t)handle->start_um_node->um_buf, 0);
 
     handle->um_buffer_state = UM_BUFFER_STATE_READY;
 }
@@ -71,23 +71,23 @@ uint8_t *um_handle_in_resume(struct um_buffer_handle *handle)
 {
     if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
-        struct um_node *node = handle->um_start;
+        struct um_node *node = handle->start_um_node;
 
         do{
             node->um_node_offset = 0;
-            node->um_node_state = UM_NODE_STATE_FREE;
+            node->um_node_state = UM_NODE_STATE_HW_FINISHED;
             node = node->next;
-        }while(node != handle->um_start);
+        }while(node != handle->start_um_node);
 
-        handle->um_read = handle->um_write = handle->um_start;
+        handle->cur_um_node_for_hw = handle->cur_um_node_for_usb = handle->start_um_node;
         handle->um_abs_offset = 0;
 
-        handle->um_write->um_node_state = UM_NODE_STATE_WRITER;
+        handle->cur_um_node_for_usb->um_node_state = UM_NODE_STATE_UNDER_USB;
         
-        handle->um_play((uint32_t)handle->um_start->um_buf, (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) >> 1);
+        handle->um_play((uint32_t)handle->start_um_node->um_buf, (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) >> 1);
     }
 
-    return handle->um_start->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
+    return handle->start_um_node->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
 }
 
 uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
@@ -96,33 +96,33 @@ uint8_t *um_handle_in_dequeue(struct um_buffer_handle *handle)
     {
         if(handle->um_abs_offset < ((uint16_t)(handle->um_number_of_nodes * handle->um_usb_frame_in_node) >> 2))
         {
-            return handle->um_start->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
+            return handle->start_um_node->um_buf + (handle->um_number_of_nodes * handle->um_usb_frame_in_node * handle->um_usb_packet_size) - handle->um_usb_packet_size;
         }
 
         handle->um_buffer_state = UM_BUFFER_STATE_PLAY;
-        handle->um_read->um_node_state = UM_NODE_STATE_READER;
-        return handle->um_read->um_buf;
+        handle->cur_um_node_for_hw->um_node_state = UM_NODE_STATE_UNDER_HW;
+        return handle->cur_um_node_for_hw->um_buf;
     }
     
-    handle->um_read->um_node_offset++;
-    if(handle->um_read->um_node_offset == handle->um_usb_frame_in_node)
+    handle->cur_um_node_for_hw->um_node_offset++;
+    if(handle->cur_um_node_for_hw->um_node_offset == handle->um_usb_frame_in_node)
     {
-        if(handle->um_read->next->um_node_state != UM_NODE_STATE_READY)
+        if(handle->cur_um_node_for_hw->next->um_node_state != UM_NODE_STATE_USB_FINISHED)
         {
             //buffer underflow
             return (uint8_t *)0xFFFFFFFF;
         }
-        handle->um_read->um_node_offset = 0;
-        handle->um_read->um_node_state = UM_NODE_STATE_FREE;
-        handle->um_read = handle->um_read->next;
+        handle->cur_um_node_for_hw->um_node_offset = 0;
+        handle->cur_um_node_for_hw->um_node_state = UM_NODE_STATE_HW_FINISHED;
+        handle->cur_um_node_for_hw = handle->cur_um_node_for_hw->next;
     }
 
-    return handle->um_read->um_buf + (handle->um_read->um_node_offset * handle->um_usb_packet_size);
+    return handle->cur_um_node_for_hw->um_buf + (handle->cur_um_node_for_hw->um_node_offset * handle->um_usb_packet_size);
 }
 
 void um_handle_in_cbk(struct um_buffer_handle *handle)
 {
-    int res = dsp_calculation_request((int16_t *)handle->um_write->um_buf, usb_data_ready, (void *)handle);
+    int res = dsp_calculation_request((int16_t *)handle->cur_um_node_for_usb->um_buf, usb_data_ready, (void *)handle);
 
     if(res)
     {

@@ -646,7 +646,7 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
               /* Prepare Out endpoint to receive audio data */
               DCD_EP_PrepareRx(pdev,
                               AUDIO_OUT_EP,
-                              audio_handle->um_start->um_buf,
+                              audio_handle->start_um_node->um_buf,
                               AUDIO_OUT_PACKET);
             }
             else if(req->wValue == 0)

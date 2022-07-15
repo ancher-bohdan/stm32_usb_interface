@@ -36,10 +36,11 @@
 
 enum um_node_state
 {
-    UM_NODE_STATE_FREE = 0,
-    UM_NODE_STATE_WRITER,
-    UM_NODE_STATE_READY,
-    UM_NODE_STATE_READER
+    UM_NODE_STATE_HW_FINISHED = 0,
+    UM_NODE_STATE_UNDER_USB,
+    UM_NODE_STATE_USB_FINISHED,
+    UM_NODE_STATE_UNDER_HW,
+    UM_NODE_STATE_INITIAL = 0xFF
 };
 
 enum um_buffer_state
@@ -69,9 +70,9 @@ struct um_buffer_listener
 
 struct um_buffer_handle
 {
-    struct um_node *um_read;
-    struct um_node *um_write;
-    struct um_node *um_start;
+    struct um_node *cur_um_node_for_hw;
+    struct um_node *cur_um_node_for_usb;
+    struct um_node *start_um_node;
     uint8_t *congestion_avoidance_bucket;
 
     uint32_t um_usb_packet_size;
