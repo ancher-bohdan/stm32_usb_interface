@@ -78,6 +78,7 @@
 #include "stm32f4_adc_driver.h"
 #include "stm32f4_tim_usb_fb.h"
 #include "stm324xg_eval.h"
+#include "dsp.h"
 
 #include <stdlib.h>
 
@@ -661,7 +662,7 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
             /* Microphone interface */
             if(req->wValue == 0)
             {
-              um_handle_in_pause(in_handle);
+              um_handle_pause(in_handle);
               DCD_EP_Flush (pdev,AUDIO_IN_EP);
               DCD_EP_Close (pdev , AUDIO_IN_EP);
             }
@@ -672,7 +673,7 @@ static uint8_t  usbd_audio_Setup (void  *pdev,
                           AUDIO_IN_EP,
                           AUDIO_IN_PACKET,
                           USB_OTG_EP_ISOC);
-              um_handle_in_trigger_resume(in_handle);
+              um_handle_trigger_resume(in_handle);
             }
           break;
           default:
@@ -738,12 +739,9 @@ static uint8_t  usbd_audio_DataIn (void *pdev, uint8_t epnum)
 
     DCD_EP_Flush(pdev, AUDIO_IN_EP);
 
-    next = um_handle_in_dequeue(in_handle);
+    next = um_handle_dequeue(in_handle, in_handle->um_usb_packet_size);
 
     if(next == NULL)
-    {
-      next = null_data;
-    } else if (next == 0xFFFFFFFF)
     {
       return USBD_OK;
     }
@@ -805,7 +803,7 @@ static uint8_t  usbd_audio_DataOut (void *pdev, uint8_t epnum)
   */
 static uint8_t  usbd_audio_SOF (void *pdev)
 {
-  uint8_t *buf = um_handle_in_event_dispatcher(in_handle);
+  uint8_t *buf = um_handle_event_dispatcher(in_handle);
   if(buf != NULL)
   {
     DCD_EP_Tx(pdev, AUDIO_IN_EP, buf, in_handle->um_usb_packet_size);
@@ -893,6 +891,17 @@ void EVAL_AUDIO_TransferComplete_CallBack(uint32_t pBuffer, uint32_t Size)
 void EVAL_AUDIO_HalfTransfer_CallBack(uint32_t pBuffer, uint32_t Size)
 {
   audio_dma_complete_cb(audio_handle);
+}
+
+void um_handle_in_cbk(struct um_buffer_handle *handle)
+{
+    /*int res = dsp_calculation_request((int16_t *)handle->cur_um_node_for_hw->um_buf, audio_dma_complete_cb, (void *)handle);
+
+    if(res)
+    {
+        while(1) {}
+    }*/
+    audio_dma_complete_cb(handle);
 }
 
 void ADC_DMAHalfTransfere_Complete()
