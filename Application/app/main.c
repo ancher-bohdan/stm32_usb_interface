@@ -12,6 +12,8 @@
 
 #include "pdm2pcm_glo.h"
 
+#include <string.h>
+
 void Delay_blocking(__IO uint32_t timeout);
 
 __ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
@@ -21,10 +23,10 @@ static __IO int32_t TimingDelay;
 static PDM_Filter_Handler_t pdm_filter_handle =
 {
   .bit_order = PDM_FILTER_BIT_ORDER_MSB,
-  .endianness = PDM_FILTER_ENDIANNESS_BE,
+  .endianness = PDM_FILTER_ENDIANNESS_LE,
   .high_pass_tap = 0,
-  .in_ptr_channels = 1,
-  .out_ptr_channels = 1
+  .in_ptr_channels = 2,
+  .out_ptr_channels = 2
 };
 
 void USBAudioInit()
@@ -49,12 +51,17 @@ uint8_t pcm_data_w = 0;
 uint8_t pcm_data_r = 0;
 bool is_streaming = false;
 
+void PDM_Filer_dummy(void *src, void *dst, uint32_t size)
+{
+  memcpy(dst, src, size);
+}
+
 int main(void)
 {
   int res = 0;
   PDM_Filter_Config_t pdm_config = 
   {
-    .decimation_factor = PDM_FILTER_DEC_FACTOR_128,
+    .decimation_factor = PDM_FILTER_DEC_FACTOR_64,
     .mic_gain = 51,
     .output_samples_number = PCM_BUFFER_SIZE
   };
@@ -77,7 +84,7 @@ int main(void)
   }
 
   MEMS_MIC_Init();
-  res = EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 16000);
+  res = EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 48000);
 
   RCC->AHB1ENR |= RCC_AHB1ENR_CRCEN;
   CRC->CR = CRC_CR_RESET;
@@ -100,7 +107,8 @@ int main(void)
   {
     if(data_buffer_idx != 0xFF)
     {
-      PDM_Filter((void *)(&(PDM_data[data_buffer_idx][0])), (void *)(&(PCM_Data[(pcm_data_w++) % 4][0])), &pdm_filter_handle);
+      //PDM_Filter((void *)(&(PDM_data[data_buffer_idx][0])), (void *)(&(PCM_Data[(pcm_data_w++) % 4][0])), &pdm_filter_handle);
+      PDM_Filer_dummy((void *)(&(PDM_data[data_buffer_idx][0])), (void *)(&(PCM_Data[(pcm_data_w++) % 4][0])), PCM_BUFFER_SIZE * sizeof(PDM_data[data_buffer_idx][0]));
       data_buffer_idx = 0xFF;
       if(!is_streaming)
       {

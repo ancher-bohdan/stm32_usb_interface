@@ -15,13 +15,14 @@ static void MEMS_MIC_I2S_GPIO_init()
 
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
     GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_DOWN;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
 
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
@@ -38,12 +39,12 @@ static void MEMS_MIC_I2S_Init()
 
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2, ENABLE);
 
-    I2S_InitStructure.I2S_AudioFreq = 64000;//62500;//64000;
-    I2S_InitStructure.I2S_CPOL = I2S_CPOL_High;
-    I2S_InitStructure.I2S_DataFormat = I2S_DataFormat_16b;
+    I2S_InitStructure.I2S_AudioFreq = 48000;//62500;//64000;
+    I2S_InitStructure.I2S_CPOL = I2S_CPOL_Low;
+    I2S_InitStructure.I2S_DataFormat = I2S_DataFormat_24b;
     I2S_InitStructure.I2S_MCLKOutput = I2S_MCLKOutput_Disable;
     I2S_InitStructure.I2S_Mode = I2S_Mode_MasterRx;
-    I2S_InitStructure.I2S_Standard = I2S_Standard_MSB;
+    I2S_InitStructure.I2S_Standard = I2S_Standard_Phillips;
 
     I2S_Init(SPI2, &I2S_InitStructure);
     SPI_I2S_DMACmd(SPI2, SPI_I2S_DMAReq_Rx, ENABLE);

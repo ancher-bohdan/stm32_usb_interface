@@ -454,7 +454,7 @@ uint32_t Codec_Init(uint16_t OutputDevice, uint8_t Volume, uint32_t AudioFreq)
   counter += Codec_WriteRegister(0x05, 0x81);
 
   /* Set the Slave Mode and the audio Standard */
-  counter += Codec_WriteRegister(0x06, CODEC_STANDARD);
+  counter += Codec_WriteRegister(0x06, CODEC_STANDARD | 0x10 | 0x01);
 
   /* Set the Master volume */
   Codec_VolumeCtrl(Volume);
@@ -999,7 +999,7 @@ static void Codec_AudioInterface_Init(uint32_t AudioFreq)
   SPI_I2S_DeInit(CODEC_I2S);
   I2S_InitStructure.I2S_AudioFreq = AudioFreq;
   I2S_InitStructure.I2S_Standard = I2S_STANDARD;
-  I2S_InitStructure.I2S_DataFormat = I2S_DataFormat_16b;
+  I2S_InitStructure.I2S_DataFormat = I2S_DataFormat_24b;
   I2S_InitStructure.I2S_CPOL = I2S_CPOL_Low;
   I2S_InitStructure.I2S_Mode = I2S_Mode_MasterTx;
 #ifdef CODEC_MCLK_ENABLED
