@@ -1,13 +1,6 @@
 #include "stm32f4xx.h"
 
-#include "usb_core.h"
-#include "usbd_core.h"
-#include "usbd_audio_core.h"
-
-extern uint32_t USBD_OTG_ISR_Handler (USB_OTG_CORE_HANDLE *pdev);
 extern void TimingDelay_Decrement(void);
-
-extern USB_OTG_CORE_HANDLE USB_OTG_dev;
 
 /******************************************************************************/
 /*            Cortex-M4 Processor Exceptions Handlers                         */
@@ -122,13 +115,7 @@ void SysTick_Handler(void)
 #ifdef USE_USB_OTG_FS
 void OTG_FS_WKUP_IRQHandler(void)
 {
-  if(USB_OTG_dev.cfg.low_power)
-  {
-    *(uint32_t *)(0xE000ED10) &= 0xFFFFFFF9 ;
-    SystemInit();
-    USB_OTG_UngateClock(&USB_OTG_dev);
-  }
-  EXTI_ClearITPendingBit(EXTI_Line18);
+
 }
 #endif
 
@@ -140,13 +127,7 @@ void OTG_FS_WKUP_IRQHandler(void)
 #ifdef USE_USB_OTG_HS
 void OTG_HS_WKUP_IRQHandler(void)
 {
-  if(USB_OTG_dev.cfg.low_power)
-  {
-    *(uint32_t *)(0xE000ED10) &= 0xFFFFFFF9 ;
-    SystemInit();
-    USB_OTG_UngateClock(&USB_OTG_dev);
-  }
-  EXTI_ClearITPendingBit(EXTI_Line20);
+
 }
 #endif
 
@@ -161,7 +142,7 @@ void OTG_HS_IRQHandler(void)
 void OTG_FS_IRQHandler(void)
 #endif
 {
-  USBD_OTG_ISR_Handler(&USB_OTG_dev);
+
 }
 
 #ifdef USB_OTG_HS_DEDICATED_EP1_ENABLED
