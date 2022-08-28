@@ -3,39 +3,18 @@
 #include "stm32f4_adc_driver.h"
 #include "stm32f4_tim_usb_fb.h"
 
-#include "usbd_audio_core.h"
-#include "usbd_usr.h"
-#include "usb_conf.h"
-#include "usbd_conf.h"
-
 #include "dsp.h"
 
 #include <stdbool.h>
 
 void Delay_blocking(__IO uint32_t timeout);
 
-__ALIGN_BEGIN USB_OTG_CORE_HANDLE  USB_OTG_dev __ALIGN_END;
-
 static __IO int32_t TimingDelay;
-
-void USBAudioInit()
-{
-  USBD_Init(&USB_OTG_dev,
-#ifdef USE_USB_OTG_HS
-            USB_OTG_HS_CORE_ID,
-#else
-            USB_OTG_FS_CORE_ID, 
-#endif
-            &USR_desc, &AUDIO_cb, &USR_cb);
-}
 
 extern uint8_t test_flag_work;
 
 static void send_mclk_to_sof_ratio_feedback(uint32_t feedback)
 {
-  uint32_t mclk_to_sof_ratio = test_flag_work == 0 ? feedback : 0x600000;
-  DCD_EP_Tx(&USB_OTG_dev, AUDIO_IN_FEEDBACK_EP, (uint8_t *)&mclk_to_sof_ratio, 3);
-  USB_OTG_dev.dev.in_ep[1].even_odd_frame = USB_OTG_dev.dev.in_ep[1].even_odd_frame ? 0 : 1;
 }
 
 int main(void)
@@ -64,8 +43,6 @@ int main(void)
 
   TIM_FB_Init();
   TIM_FB_Set_trigger_fb_transaction_callback(send_mclk_to_sof_ratio_feedback);
-
-  USBAudioInit();
 
   while (1)
   {
