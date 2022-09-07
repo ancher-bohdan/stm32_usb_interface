@@ -1,12 +1,17 @@
 include USB/tinyusb/tools/top.mk
-include USB/tinyusb/examples/make.mk
+include tools/make.mk
+
+CFLAGS_OPTIMIZED = -O0
 
 INC += \
   Application/usb \
-  $(TOP)/hw \
+  Application/drivers \
+  hw \
 
 # Example source
-EXAMPLE_SOURCE += $(wildcard Application/usb/*.c)
-SRC_C += $(addprefix $(CURRENT_PATH)/, $(EXAMPLE_SOURCE))
+PROJECT_SOURCE = $(wildcard Application/usb/*.c)
+PROJECT_SOURCE += $(wildcard Application/drivers/*.c)
+PROJECT_SOURCE += $(wildcard Application/app/*.c)
+SRC_C += $(PROJECT_SOURCE)
 
-include USB/tinyusb/examples/rules.mk
+include tools/rules.mk
