@@ -2,6 +2,7 @@
 
 extern DMA_HandleTypeDef hdma_spi2_rx;
 extern DMA_HandleTypeDef hdma_spi3_tx;
+extern DMA_HandleTypeDef hdma_adc1;
 
 
 /**
@@ -18,4 +19,12 @@ void DMA1_Stream3_IRQHandler(void)
 void DMA1_Stream7_IRQHandler(void)
 {
   HAL_DMA_IRQHandler(&hdma_spi3_tx);
+}
+
+/**
+  * @brief This function handles DMA2 stream0 global interrupt.
+  */
+void DMA2_Stream0_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_adc1);
 }

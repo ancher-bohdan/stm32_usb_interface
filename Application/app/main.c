@@ -1,6 +1,7 @@
 #include "bsp/board.h"
 #include "stm32_audio_codec_driver.h"
 #include "stm32_mems_mic_driver.h"
+#include "stm32_adc_driver.h"
 
 #define AUDIO_SAMPLE_TEST_SIZE  200
 
@@ -14,8 +15,10 @@ int main(void)
 
   EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 48000);
   MEMS_MIC_Init();
+  Analog_MIC_Init();
 
-  MEMS_MIC_Start(&(data[0][0]), sizeof(data)/sizeof(data[0][0]), DMA_DOUBLE_BUFFER_MODE_ENABLE);
+  //MEMS_MIC_Start(&(data[0][0]), sizeof(data)/sizeof(data[0][0]), DMA_DOUBLE_BUFFER_MODE_ENABLE);
+  Analog_MIC_Start(&(data[0][0]), sizeof(data)/sizeof(data[0][0]), DMA_DOUBLE_BUFFER_MODE_ENABLE);
 
   while(true)
   {
@@ -40,4 +43,14 @@ void MEMS_MIC_HalfCpltCallback(void)
 void MEMS_MIC_CpltCallback(void)
 {
   r_idx = 0;
+}
+
+void Analog_MIC_ConvCpltCallback(void)
+{
+  r_idx = 0;
+}
+
+void Analog_MIC_ConvHalfCpltCallback(void)
+{
+  r_idx = 1;
 }
