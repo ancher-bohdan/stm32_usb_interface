@@ -6,6 +6,8 @@ extern DMA_HandleTypeDef hdma_spi2_rx;
 
 extern DMA_HandleTypeDef hdma_spi3_tx;
 
+extern DMA_HandleTypeDef hdma_tim2_ch1;
+
 /**
 * @brief I2C MSP Initialization
 * This function configures the hardware resources used in this example
@@ -252,7 +254,41 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
 */
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 {
-  if(htim_base->Instance==TIM3)
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  if(htim_base->Instance==TIM2)
+  {
+    /* Peripheral clock enable */
+    __HAL_RCC_TIM2_CLK_ENABLE();
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    /**TIM2 GPIO Configuration
+    PA15     ------> TIM2_ETR
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_15;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    /* TIM2 DMA Init */
+    /* TIM2_CH1 Init */
+    hdma_tim2_ch1.Instance = DMA1_Stream5;
+    hdma_tim2_ch1.Init.Channel = DMA_CHANNEL_3;
+    hdma_tim2_ch1.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_tim2_ch1.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_tim2_ch1.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_tim2_ch1.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    hdma_tim2_ch1.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+    hdma_tim2_ch1.Init.Mode = DMA_CIRCULAR;
+    hdma_tim2_ch1.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_tim2_ch1.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    HAL_DMA_Init(&hdma_tim2_ch1);
+
+    __HAL_LINKDMA(htim_base,hdma[TIM_DMA_ID_CC1],hdma_tim2_ch1);
+
+  }
+  else if(htim_base->Instance==TIM3)
   {
   /* USER CODE BEGIN TIM3_MspInit 0 */
 

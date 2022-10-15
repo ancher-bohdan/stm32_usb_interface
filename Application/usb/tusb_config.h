@@ -42,6 +42,10 @@ extern "C" {
 #define BOARD_TUD_RHPORT      0
 #endif
 
+#ifndef TUD_OPT_RHPORT
+#define TUD_OPT_RHPORT        BOARD_TUD_RHPORT
+#endif
+
 // RHPort max operational speed can defined by board.mk
 #ifndef BOARD_TUD_MAX_SPEED
 #define BOARD_TUD_MAX_SPEED   OPT_MODE_DEFAULT_SPEED
