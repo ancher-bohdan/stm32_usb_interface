@@ -57,7 +57,7 @@ enum
     + TUD_AUDIO_DESC_OUTPUT_TERM_LEN\
     /* Interface 1, Alternate 0 */\
     + TUD_AUDIO_DESC_STD_AS_INT_LEN\
-    /* Interface 1, Alternate 0 */\
+    /* Interface 1, Alternate 1 */\
     + TUD_AUDIO_DESC_STD_AS_INT_LEN\
     + TUD_AUDIO_DESC_CS_AS_INT_LEN\
     + TUD_AUDIO_DESC_TYPE_I_FORMAT_LEN\
