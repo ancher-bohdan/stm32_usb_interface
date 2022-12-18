@@ -352,13 +352,13 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport, uint8_t itf, uint8_t ep_in, u
   (void)itf;
   (void)cur_alt_setting;
 
-  if((ep_in & 0x7f) == 2)
+  if((ep_in & 0x7f) == 1)
   {
     uint32_t ratio = FBCK_get_current_mclk_to_sof_ratio();
     ratio <<= 8;
-    tud_audio_write(&ratio, 3);
+    tud_audio_write(&ratio, 4);
   }
-  else if((ep_in & 0x7f) == 1)
+  else if((ep_in & 0x7f) == 2)
   {
     tud_audio_write(um_handle_dequeue(um_in_buffer, um_in_buffer->um_usb_packet_size), um_in_buffer->um_usb_packet_size);
   }
