@@ -94,7 +94,7 @@ uint8_t const * tud_descriptor_device_cb(void)
   #define EPNUM_AUDIO_OUT   0x02
 
 #else
-  #define EPNUM_AUDIO_IN    0x01
+  #define EPNUM_AUDIO_IN    0x02
   #define EPNUM_AUDIO_OUT   0x01
 #endif
 
