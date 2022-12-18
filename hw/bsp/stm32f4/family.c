@@ -80,14 +80,22 @@ void board_init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(BUTTON_PORT, &GPIO_InitStruct);
 
+    /* Configure USB UART GPIOs */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_USART2_CLK_ENABLE();
+
 #ifdef UART_DEV
   // UART
-  GPIO_InitStruct.Pin       = UART_TX_PIN | UART_RX_PIN;
+  GPIO_InitStruct.Pin       = UART_TX_PIN;
   GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull      = GPIO_PULLUP;
   GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.Alternate = UART_GPIO_AF;
-  HAL_GPIO_Init(UART_GPIO_PORT, &GPIO_InitStruct);
+  HAL_GPIO_Init(UART_GPIO_PORT_TX, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin       = UART_RX_PIN;
+  HAL_GPIO_Init(UART_GPIO_PORT_RX, &GPIO_InitStruct);
 
   UartHandle = (UART_HandleTypeDef){
     .Instance        = UART_DEV,
@@ -101,9 +109,6 @@ void board_init(void)
   };
   HAL_UART_Init(&UartHandle);
 #endif
-
-  /* Configure USB FS GPIOs */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /* Configure USB D+ D- Pins */
   GPIO_InitStruct.Pin = GPIO_PIN_11 | GPIO_PIN_12;

@@ -44,10 +44,11 @@
 // Enable PA2 as the debug log UART
 // It is not routed to the ST/Link on the Discovery board.
 #define UART_DEV              USART2
-#define UART_GPIO_PORT        GPIOA
+#define UART_GPIO_PORT_TX     GPIOA
+#define UART_GPIO_PORT_RX     GPIOD
 #define UART_GPIO_AF          GPIO_AF7_USART2
 #define UART_TX_PIN           GPIO_PIN_2
-#define UART_RX_PIN           GPIO_PIN_3
+#define UART_RX_PIN           GPIO_PIN_6
 
 //--------------------------------------------------------------------+
 // RCC Clock
