@@ -1,15 +1,15 @@
 #include "stm32f4xx_hal.h"
 
+#include "stm32_audio_feedback_driver.h"
+
 #define ARR_SIZE(arr)   (sizeof(arr) / sizeof(arr[0]))
 
-#define FB_RATE         2
+#define FB_RATE         8
 
 TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
 
 static uint32_t g_mclk_to_sof_ratios[FB_RATE << 1];
-
-static uint32_t g_current_mclk_to_sof_ratio = 0;
 
 static void FBCK_DMA_PreConfig(void)
 {
@@ -76,19 +76,13 @@ void FBCK_Start(void)
 void FBCK_Stop(void)
 {
     HAL_TIM_IC_Stop_DMA(&htim2, TIM_CHANNEL_1);
-    g_current_mclk_to_sof_ratio = 0;
-}
-
-uint32_t FBCK_get_current_mclk_to_sof_ratio(void)
-{
-    return g_current_mclk_to_sof_ratio;
 }
 
 /*=====================================================================*/
 /*======================= INTERNAL FUNCTIONS ==========================*/
 /*=====================================================================*/
 
-static void __update_mclk_to_sof_ratio(uint8_t start_idx)
+static uint32_t __update_mclk_to_sof_ratio(uint8_t start_idx)
 {
     uint32_t res = 0;
     uint8_t i = 0;
@@ -98,15 +92,21 @@ static void __update_mclk_to_sof_ratio(uint8_t start_idx)
         res += g_mclk_to_sof_ratios[start_idx + i];
     }
 
-    g_current_mclk_to_sof_ratio = res;
+    return res;
 }
 
 void HAL_TIM_IC_CaptureHalfCpltCallback(TIM_HandleTypeDef *htim)
 {
-    if(htim == &htim2) __update_mclk_to_sof_ratio(0);
+    if(htim == &htim2)
+    {
+        if(FBCK_send_feedback) FBCK_send_feedback(__update_mclk_to_sof_ratio(0));
+    }
 }
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-    if(htim == &htim2) __update_mclk_to_sof_ratio(FB_RATE);
+    if(htim == &htim2)
+    {
+        if(FBCK_send_feedback) FBCK_send_feedback(__update_mclk_to_sof_ratio(FB_RATE));
+    }
 }

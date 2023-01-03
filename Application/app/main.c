@@ -351,19 +351,26 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport, uint8_t itf, uint8_t ep_in, u
   (void)rhport;
   (void)itf;
   (void)cur_alt_setting;
+  (void)ep_in;
 
-  if((ep_in & 0x7f) == 1)
-  {
-    uint32_t ratio = FBCK_get_current_mclk_to_sof_ratio();
-    ratio <<= 8;
-    tud_audio_write(&ratio, 4);
-  }
-  else if((ep_in & 0x7f) == 2)
-  {
-    tud_audio_write(um_handle_dequeue(um_in_buffer, um_in_buffer->um_usb_packet_size), um_in_buffer->um_usb_packet_size);
-  }
+  tud_audio_write(um_handle_dequeue(um_in_buffer, um_in_buffer->um_usb_packet_size), um_in_buffer->um_usb_packet_size);
 
   return true;
+}
+
+void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf, audio_feedback_params_t* feedback_param)
+{
+  (void)func_id;
+  (void)alt_itf;
+
+  feedback_param->method = AUDIO_FEEDBACK_METHOD_FREQUENCY_FIXED;
+  feedback_param->frequency.mclk_freq = 256 * 48000;
+  feedback_param->sample_freq = 48000;
+}
+
+void FBCK_send_feedback(uint32_t feedback)
+{
+  tud_audio_feedback_update(0, feedback);
 }
 
 void EVAL_AUDIO_HalfCpltCallback(void)
