@@ -107,9 +107,9 @@ enum
     TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ _epout, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_ASYNCHRONOUS | TUSB_ISO_EP_ATT_DATA), /*_maxEPsize*/ TUD_AUDIO_EP_SIZE(CFG_TUD_AUDIO_FUNC_1_MAX_SAMPLE_RATE, CFG_TUD_AUDIO_FUNC_1_FORMAT_1_N_BYTES_PER_SAMPLE_RX, CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX), /*_interval*/ 0x01),\
     /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.10.1.2) */\
     TUD_AUDIO_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO_CS_AS_ISO_DATA_EP_ATT_NON_MAX_PACKETS_OK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_lockdelayunit*/ AUDIO_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_UNDEFINED, /*_lockdelay*/ 0x0000),\
-    /* Standard AS Isochronous Audio Data Endpoint Descriptor(4.10.1.1) */\
-    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ _epout | 0x80, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_NO_SYNC | TUSB_ISO_EP_ATT_EXPLICIT_FB), /*_maxEPsize*/ 64, /*_interval*/ 0x02),\
-    /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.10.1.2) */\
+    /* Standard AS Isochronous Audio Feedback Endpoint Descriptor(4.10.1.1) */\
+    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ _epout | 0x80, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_NO_SYNC | TUSB_ISO_EP_ATT_EXPLICIT_FB), /*_maxEPsize*/ 64, /*_interval*/ 0x04),\
+    /* Class-Specific AS Isochronous Audio Feedback Endpoint Descriptor(4.10.1.2) */\
     TUD_AUDIO_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO_CS_AS_ISO_DATA_EP_ATT_NON_MAX_PACKETS_OK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_lockdelayunit*/ AUDIO_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_UNDEFINED, /*_lockdelay*/ 0x0000),\
     /* Standard AS Interface Descriptor(4.9.1) */\
     /* Interface 2, Alternate 0 - default alternate setting with 0 bandwidth */\
