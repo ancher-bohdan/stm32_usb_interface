@@ -89,7 +89,7 @@ int main(void)
 
   result = um_handle_init(um_out_buffer, 192, 4, 4, UM_BUFFER_CONFIG_CA_FEEDBACK,
     cs43l22_play, cs43l22_pause_resume);
-  result += um_handle_init(um_in_buffer, 96, 4, 4, UM_BUFFER_CONFIG_CA_NONE,
+  result += um_handle_init(um_in_buffer, 192, 4, 4, UM_BUFFER_CONFIG_CA_NONE,
     max9814_play, max9814_pause_resume);
 
   if(result != UM_EOK)
