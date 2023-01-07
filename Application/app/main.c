@@ -31,6 +31,7 @@ enum
 
 int8_t mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
 int16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
+int8_t selector = 0;
 
 const uint32_t sample_rates[] = { 48000 };
 
@@ -249,6 +250,40 @@ static bool tud_audio_feature_unit_set_request(uint8_t rhport, audio_control_req
   }
 }
 
+static bool tud_audio_selector_unit_get_request(uint8_t rhport, audio_control_request_t const *request)
+{
+  TU_ASSERT(request->bEntityID == UAC2_ENTYTY_MIC_SELECTOR_UNIT);
+
+  if(request->bControlSelector == AUDIO_SU_CTRL_SELECTOR && request->bRequest == AUDIO_CS_REQ_CUR)
+  {
+    audio_control_cur_1_t ctrl_selector = { .bCur = selector };
+    TU_LOG1("Get selector value %d\r\n", ctrl_selector.bCur);
+    return tud_audio_buffer_and_schedule_control_xfer(rhport, (tusb_control_request_t const *)request, &ctrl_selector, sizeof(selector));
+  }
+  return false;
+}
+
+static bool tud_audio_selector_unit_set_request(uint8_t rhport, audio_control_request_t const *request, uint8_t const *buf)
+{
+  (void)rhport;
+
+  TU_ASSERT(request->bEntityID == UAC2_ENTITY_SPK_FEATURE_UNIT);
+  TU_VERIFY(request->bRequest == AUDIO_CS_REQ_CUR);
+
+  if(request->bControlSelector == AUDIO_SU_CTRL_SELECTOR)
+  {
+    TU_VERIFY(request->wLength == sizeof(audio_control_cur_1_t));
+
+    selector = ((audio_control_cur_1_t const *)buf)->bCur;
+
+    TU_LOG1("Set selector value: %d\r\n", selector);
+
+    return true;
+  }
+
+  return false;
+}
+
 //--------------------------------------------------------------------+
 // Application Callback API Implementations
 //--------------------------------------------------------------------+
@@ -262,6 +297,8 @@ bool tud_audio_get_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
     return tud_audio_clock_get_request(rhport, request);
   if (request->bEntityID == UAC2_ENTITY_SPK_FEATURE_UNIT)
     return tud_audio_feature_unit_get_request(rhport, request);
+  if (request->bEntityID == UAC2_ENTYTY_MIC_SELECTOR_UNIT)
+    return tud_audio_selector_unit_get_request(rhport, request);
   else
   {
     TU_LOG1("Get request not handled, entity = %d, selector = %d, request = %d\r\n",
@@ -279,6 +316,8 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
     return tud_audio_feature_unit_set_request(rhport, request, buf);
   if (request->bEntityID == UAC2_ENTITY_CLOCK)
     return tud_audio_clock_set_request(rhport, request, buf);
+  if (request->bEntityID == UAC2_ENTYTY_MIC_SELECTOR_UNIT)
+    return tud_audio_selector_unit_set_request(rhport, request, buf);
   TU_LOG1("Set request not handled, entity = %d, selector = %d, request = %d\r\n",
           request->bEntityID, request->bControlSelector, request->bRequest);
 

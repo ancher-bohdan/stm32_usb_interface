@@ -35,8 +35,17 @@
 #define UAC2_ENTITY_SPK_FEATURE_UNIT    0x02
 #define UAC2_ENTITY_SPK_OUTPUT_TERMINAL 0x03
 // Microphone path
-#define UAC2_ENTITY_MIC_INPUT_TERMINAL  0x11
-#define UAC2_ENTITY_MIC_OUTPUT_TERMINAL 0x13
+#define UAC2_ENTITY_MIC_INPUT_TERMINAL1 0x11
+#define UAC2_ENTYTY_MIC_INPUT_TERMINAL2 0x12
+#define UAC2_ENTYTY_MIC_SELECTOR_UNIT   0x13
+#define UAC2_ENTITY_MIC_OUTPUT_TERMINAL 0x14
+
+#define TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS_LEN  9
+#define TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS(_unitid, _sourceid1, _sourceid2, _controls, _stridx) \
+		TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS_LEN, TUSB_DESC_CS_INTERFACE, AUDIO_CS_AC_INTERFACE_SELECTOR_UNIT, _unitid, 2, _sourceid1, _sourceid2, _controls, _stridx
+
+#define AUDIO_SELECTOR_UNIT_SELECTOR_CTRL_POS   0
+
 
 enum
 {
@@ -54,6 +63,8 @@ enum
     + TUD_AUDIO_DESC_FEATURE_UNIT_TWO_CHANNEL_LEN\
     + TUD_AUDIO_DESC_OUTPUT_TERM_LEN\
     + TUD_AUDIO_DESC_INPUT_TERM_LEN\
+    + TUD_AUDIO_DESC_INPUT_TERM_LEN\
+    + TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS_LEN\
     + TUD_AUDIO_DESC_OUTPUT_TERM_LEN\
     /* Interface 1, Alternate 0 */\
     + TUD_AUDIO_DESC_STD_AS_INT_LEN\
@@ -80,7 +91,7 @@ enum
     /* Standard AC Interface Descriptor(4.7.1) */\
     TUD_AUDIO_DESC_STD_AC(/*_itfnum*/ ITF_NUM_AUDIO_CONTROL, /*_nEPs*/ 0x00, /*_stridx*/ _stridx),\
     /* Class-Specific AC Interface Header Descriptor(4.7.2) */\
-    TUD_AUDIO_DESC_CS_AC(/*_bcdADC*/ 0x0200, /*_category*/ AUDIO_FUNC_HEADSET, /*_totallen*/ TUD_AUDIO_DESC_CLK_SRC_LEN+TUD_AUDIO_DESC_FEATURE_UNIT_TWO_CHANNEL_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_OUTPUT_TERM_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_OUTPUT_TERM_LEN, /*_ctrl*/ AUDIO_CS_AS_INTERFACE_CTRL_LATENCY_POS),\
+    TUD_AUDIO_DESC_CS_AC(/*_bcdADC*/ 0x0200, /*_category*/ AUDIO_FUNC_HEADSET, /*_totallen*/ TUD_AUDIO_DESC_CLK_SRC_LEN+TUD_AUDIO_DESC_FEATURE_UNIT_TWO_CHANNEL_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_OUTPUT_TERM_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS_LEN+TUD_AUDIO_DESC_OUTPUT_TERM_LEN, /*_ctrl*/ AUDIO_CS_AS_INTERFACE_CTRL_LATENCY_POS),\
     /* Clock Source Descriptor(4.7.2.1) */\
     TUD_AUDIO_DESC_CLK_SRC(/*_clkid*/ UAC2_ENTITY_CLOCK, /*_attr*/ 3, /*_ctrl*/ 7, /*_assocTerm*/ 0x00,  /*_stridx*/ 0x00),    \
     /* Input Terminal Descriptor(4.7.2.4) */\
@@ -90,9 +101,13 @@ enum
     /* Output Terminal Descriptor(4.7.2.5) */\
     TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_SPK_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_OUT_HEADPHONES, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTITY_SPK_FEATURE_UNIT, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_ctrl*/ 0x0000, /*_stridx*/ 0x00),\
     /* Input Terminal Descriptor(4.7.2.4) */\
-    TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_IN_GENERIC_MIC, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_nchannelslogical*/ 0x02, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ 0 * (AUDIO_CTRL_R << AUDIO_IN_TERM_CTRL_CONNECTOR_POS), /*_stridx*/ 0x00),\
+    TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL1, /*_termtype*/ AUDIO_TERM_TYPE_IN_GENERIC_MIC, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_nchannelslogical*/ 0x02, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ 0 * (AUDIO_CTRL_R << AUDIO_IN_TERM_CTRL_CONNECTOR_POS), /*_stridx*/ 0x00),\
+    /* Input Terminal Descriptor(4.7.2.4) */\
+    TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTYTY_MIC_INPUT_TERMINAL2, /*_termtype*/ AUDIO_TERM_TYPE_IN_GENERIC_MIC, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_nchannelslogical*/ 0x02, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ 0 * (AUDIO_CTRL_R << AUDIO_IN_TERM_CTRL_CONNECTOR_POS), /*_stridx*/ 0x00),\
+    /* Selector Unit Descriptor(4.7.2.7) */\
+    TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS(/*_unitid*/UAC2_ENTYTY_MIC_SELECTOR_UNIT, /*_sourceid1*/ UAC2_ENTITY_MIC_INPUT_TERMINAL1, /*_sourceid2*/ UAC2_ENTYTY_MIC_INPUT_TERMINAL2, /*_controls*/(AUDIO_CTRL_RW << AUDIO_SELECTOR_UNIT_SELECTOR_CTRL_POS), /*_stridx*/0x05 ),\
     /* Output Terminal Descriptor(4.7.2.5) */\
-    TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTITY_MIC_INPUT_TERMINAL, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_ctrl*/ 0x0000, /*_stridx*/ 0x00),\
+    TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTYTY_MIC_SELECTOR_UNIT, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_ctrl*/ 0x0000, /*_stridx*/ 0x00),\
     /* Standard AS Interface Descriptor(4.9.1) */\
     /* Interface 1, Alternate 0 - default alternate setting with 0 bandwidth */\
     TUD_AUDIO_DESC_STD_AS_INT(/*_itfnum*/ (uint8_t)(ITF_NUM_AUDIO_STREAMING_SPK), /*_altset*/ 0x00, /*_nEPs*/ 0x00, /*_stridx*/ 0x05),\
