@@ -74,6 +74,24 @@ void MEMS_MIC_Stop(void)
     HAL_I2S_DMAStop(&hi2s2);
 }
 
+/**
+  * @brief  Pauses or Resumes the audio stream playing from the Media.
+  * @param Cmd: AUDIO_PAUSE (or 0) to pause, AUDIO_RESUME (or any value different
+  *        from 0) to resume.
+  * @retval None.
+  */
+void MEMS_MIC_PauseResume(uint32_t Cmd)
+{
+  if(Cmd == 0)
+  {
+    HAL_I2S_DMAPause(&hi2s2);
+  }
+  else /* AUDIO RESUME */
+  {
+    HAL_I2S_DMAResume(&hi2s2);
+  }
+}
+
 __weak void MEMS_MIC_HalfCpltCallback(void)
 {
 

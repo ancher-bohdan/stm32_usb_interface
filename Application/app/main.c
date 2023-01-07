@@ -75,6 +75,21 @@ static uint32_t max9814_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size)
   return 0;
 }
 
+static void msm261s_play(uint32_t addr, uint32_t size)
+{
+  MEMS_MIC_Start((uint16_t *)addr, size, DMA_DOUBLE_BUFFER_MODE_ENABLE);
+}
+
+static uint32_t msm261s_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size)
+{
+  (void) addr;
+  (void) size;
+
+  MEMS_MIC_PauseResume(cmd);
+
+  return 0;
+}
+
 int main(void)
 {
   int result = 0;
@@ -90,8 +105,9 @@ int main(void)
 
   result = um_handle_init(um_out_buffer, 192, 4, 4, UM_BUFFER_CONFIG_CA_FEEDBACK,
     cs43l22_play, cs43l22_pause_resume);
-  result += um_handle_init(um_in_buffer, 192, 4, 4, UM_BUFFER_CONFIG_CA_NONE,
-    max9814_play, max9814_pause_resume);
+  result += um_handle_init(um_in_buffer, 384, 4, 4, UM_BUFFER_CONFIG_CA_NONE,
+//    max9814_play, max9814_pause_resume);
+      msm261s_play, msm261s_pause_resume);
 
   if(result != UM_EOK)
   {
@@ -424,10 +440,12 @@ void EVAL_AUDIO_CpltCallback(void)
 
 void MEMS_MIC_HalfCpltCallback(void)
 {
+  audio_dma_complete_cb(um_in_buffer);
 }
 
 void MEMS_MIC_CpltCallback(void)
 {
+  audio_dma_complete_cb(um_in_buffer);
 }
 
 void Analog_MIC_ConvCpltCallback(void)
