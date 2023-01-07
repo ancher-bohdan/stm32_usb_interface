@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "stm32f4xx_hal.h": "c",
+        "stm32_mems_mic_driver.h": "c",
+        "stm32f4xx_hal_conf.h": "c",
+        "stm32_adc_driver.h": "c",
+        "tusb.h": "c",
+        "tusb_config.h": "c",
+        "stm32_audio_codec_driver.h": "c",
+        "stdio.h": "c",
+        "board.h": "c",
+        "usb_descriptors.h": "c",
+        "stdlib.h": "c",
+        "stdint.h": "c",
+        "stdbool.h": "c"
+    }
+}

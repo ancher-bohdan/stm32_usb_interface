@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/Application/**",
+                "${workspaceFolder}/hw/**",
+                "${workspaceFolder}/USB/tinyusb/src/**",
+                "${workspaceFolder}/USB/tinyusb/src"
+            ],
+            "defines": [],
+            "compilerPath": "/home/bohdan/stm32/tools/gcc-arm-none-eabi-9-2020-q2-update/bin/arm-none-eabi-gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-arm",
+            "compilerArgs": [
+                "-DSTM32F407xx",
+                "-DCFG_TUSB_MCU=OPT_MCU_STM32F4"
+            ]
+        }
+    ],
+    "version": 4
+}
