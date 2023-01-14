@@ -19,27 +19,20 @@
 #define CW_LOWER_BOUND                      1
 #define CW_UPPER_BOUND                      3
 
-#define UM_BUFFER_CONFIG_LISTENERS_EN       0x01
 #define UM_BUFFER_CONFIG_CA_NONE            0x00
 #define UM_BUFFER_CONFIG_CA_DROP_HALF_PKT   0x02
 #define UM_BUFFER_CONFIG_CA_FEEDBACK        0x04
 
-#define UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY 0x4
 #define UM_BUFFER_FLAG_CONGESTION_AVIODANCE 0x2
 #define UM_BUFFER_FLAG_HALF_USB_FRAME       0x1
 
-#define GET_CONFIG_LISTENERS_EN(config)     ((config) & UM_BUFFER_CONFIG_LISTENERS_EN)
 #define GET_CONFIG_CA_ALGORITM(config)      ((config) & (UM_BUFFER_CONFIG_CA_DROP_HALF_PKT | UM_BUFFER_CONFIG_CA_FEEDBACK))
 
-#define GET_BUF_LISTENERS_NEMPTY_FLAG(flag) ((flag) & UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY)
 #define GET_CONGESTION_AVOIDANCE_FLAG(flag) ((flag) & UM_BUFFER_FLAG_CONGESTION_AVIODANCE)
 #define GET_HALF_USB_FRAME_FLAG(flag)       ((flag) & UM_BUFFER_FLAG_HALF_USB_FRAME)
 
-#define TOGGLE_BUF_LISTENERS_NEMPTY_FLAG(flag)  (flag) = ((flag) ^ UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY)
 #define TOGGLE_CONGESTION_AVOIDANCE_FLAG(flag)  (flag) = ((flag) ^ UM_BUFFER_FLAG_CONGESTION_AVIODANCE)
 #define TOGGLE_HALF_USB_FRAME_FLAG(flag)        (flag) = ((flag) ^ UM_BUFFER_FLAG_HALF_USB_FRAME)
-
-#define CLEAR_BUF_LISTENERS_NEMPTY_FLAG(flag)   (flag) = ((flag) & ~UM_BUFFER_FLAG_BUF_LISTENERS_NEMPTY)
 
 #define UM_EOK                              0
 #define UM_ENOMEM                           -1
@@ -126,11 +119,8 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size);
 uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size);
 
 void um_handle_pause(struct um_buffer_handle *handle);
-void um_handle_trigger_resume(struct um_buffer_handle *handle);
 
 void audio_dma_complete_cb(struct um_buffer_handle *handle);
-
-uint8_t *um_handle_event_dispatcher(struct um_buffer_handle *handle);
 
 void free_um_buffer_handle(struct um_buffer_handle *handle);
 
