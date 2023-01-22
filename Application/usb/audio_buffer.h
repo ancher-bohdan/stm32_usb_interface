@@ -14,8 +14,6 @@
     if( !(cond) ) { BREAK; return ret_val; }\
 } while(0)
 
-#define UM_BUFFER_LISTENER_COUNT            4
-
 #define CW_LOWER_BOUND                      1
 #define CW_UPPER_BOUND                      3
 
@@ -40,6 +38,8 @@
 #define UM_EBUFOVERFLOW                     -3
 #define UM_EARGS                            -4
 
+#define UM_LISTENERS_WRONG_ID               __UINT32_MAX__
+
 enum um_node_state
 {
     UM_NODE_STATE_HW_FINISHED = 0,
@@ -56,6 +56,13 @@ enum um_buffer_state
     UM_BUFFER_STATE_PLAY
 };
 
+enum um_buffer_listener_type
+{
+    UM_LISTENER_TYPE_CA = 0,
+
+    UM_LISTENER_TYPE_COUNT
+};
+
 struct um_node
 {
     uint8_t *um_buf;
@@ -64,15 +71,7 @@ struct um_node
     enum um_node_state um_node_state;
 };
 
-struct um_buffer_listener
-{
-    int16_t *dst;
-    uint16_t dst_offset;
-    uint16_t samples_required;
-
-    void (*listener_finish)(void *args);
-    void *args;
-};
+struct um_buffer_listener;
 
 struct um_buffer_handle
 {
@@ -92,19 +91,13 @@ struct um_buffer_handle
     enum um_buffer_state um_buffer_state;
     uint8_t um_buffer_flags;
     uint8_t um_buffer_config;
-    struct um_buffer_listener *listeners;
+    struct um_buffer_listener *listeners[UM_LISTENER_TYPE_COUNT];
 
     void (*um_play)(uint32_t addr, uint32_t size);
     uint32_t (*um_pause_resume)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 };
 
-struct usb_sample_struct
-{
-    uint16_t left_channel;
-    uint16_t right_channel;
-};
-
-typedef void (*listener_job_finish)(void *args);
+typedef void (*listener_callback)(void *args);
 typedef void (*um_play_fnc)(uint32_t addr, uint32_t size);
 typedef uint32_t (*um_pause_resume_fnc)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 
@@ -119,6 +112,9 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size);
 uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size);
 
 void um_handle_pause(struct um_buffer_handle *handle);
+
+uint32_t um_handle_register_listener(struct um_buffer_handle *handle, enum um_buffer_listener_type type, listener_callback clbk);
+void um_handle_unregister_listener(struct um_buffer_handle *handle, enum um_buffer_listener_type type, uint32_t listener_id);
 
 void audio_dma_complete_cb(struct um_buffer_handle *handle);
 
