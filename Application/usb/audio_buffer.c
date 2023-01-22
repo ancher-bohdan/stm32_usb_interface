@@ -4,6 +4,27 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define UM_BUFFER_LISTENER_COUNT            4
+
+struct um_buffer_listener
+{
+    uint32_t id;
+
+    void (*listener_handle)(void *args);
+    struct um_buffer_listener *next;
+};
+
+static struct um_buffer_listener _listener_pool[UM_LISTENER_TYPE_COUNT][UM_BUFFER_LISTENER_COUNT] =
+{
+    /* UM_LISTENER_TYPE_CA */
+    {
+        {.id = 0, .listener_handle = NULL, .next = NULL},
+        {.id = 1, .listener_handle = NULL, .next = NULL},
+        {.id = 2, .listener_handle = NULL, .next = NULL},
+        {.id = 3, .listener_handle = NULL, .next = NULL}
+    }
+};
+
 static struct um_node** _alloc_um_nodes(struct um_buffer_handle *handle, struct um_node **prev)
 {
     static int recursion_count = 0;
@@ -36,9 +57,52 @@ static void _free_um_nodes(struct um_node *current, struct um_node *start)
     free(current);
 }
 
+static struct um_buffer_listener* _get_last_listener(struct um_buffer_listener* current)
+{
+    if(current->next != NULL)
+        return _get_last_listener(current->next);
+    else
+        return current;
+}
+
+static uint32_t allocate_listeners_from_pool(enum um_buffer_listener_type type)
+{
+    uint32_t i = 0;
+
+    for(i = 0; i < UM_BUFFER_LISTENER_COUNT; i++)
+    {
+        if(_listener_pool[type][i].listener_handle == NULL)
+        {
+            return i;
+        }
+    }
+    return UM_LISTENERS_WRONG_ID;
+}
+
 static uint8_t get_congestion_window(struct um_node *um_node_write)
 {
     return um_node_write->um_node_state != UM_NODE_STATE_HW_FINISHED ? 1 : 1 + get_congestion_window(um_node_write->next);
+}
+
+static uint32_t get_free_buffer_persentage(struct um_buffer_handle *handle)
+{
+    uint8_t i;
+    struct um_node *curr;
+    uint32_t result = 0;
+
+    for(i = 0, curr = handle->cur_um_node_for_usb;
+        i < handle->um_number_of_nodes;
+        i++, curr = curr->next)
+    {
+        if(curr->um_node_state == UM_NODE_STATE_UNDER_HW)
+        {
+            return (result * 100) / handle->total_buffer_size;
+        }
+
+        result += (handle->um_buffer_size_in_one_node - curr->um_node_offset);
+    }
+
+    return (result * 100) / handle->total_buffer_size;
 }
 
 static void reset_nodes_states_to_default(struct um_buffer_handle *handle)
@@ -63,6 +127,7 @@ int um_handle_init( struct um_buffer_handle *handle,
                     uint8_t config,
                     um_play_fnc play, um_pause_resume_fnc pause_resume )
 {
+    uint8_t i = 0;
     if(handle == NULL)
     {
         return UM_EARGS;
@@ -130,16 +195,19 @@ int um_handle_init( struct um_buffer_handle *handle,
     handle->um_play = play;
     handle->um_pause_resume = pause_resume;
 
-    handle->listeners = NULL;
+    for(i = 0; i < UM_LISTENER_TYPE_COUNT; i++)
+        handle->listeners[i] = NULL;
 
     return UM_EOK;
 }
 
-uint8_t test_flag_work = 0;
 uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
 {
     uint8_t cw;
     uint8_t *result = NULL;
+    
+    struct um_buffer_listener *ca_listener = handle->listeners[UM_LISTENER_TYPE_CA];
+    uint32_t free_buffer_size = 0;
 
     switch(GET_CONFIG_CA_ALGORITM(handle->um_buffer_config))
     {
@@ -261,30 +329,6 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
 
             result = handle->cur_um_node_for_usb->um_buf + handle->cur_um_node_for_usb->um_node_offset;
 
-            if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
-            {
-                handle->um_buffer_flags &= (~UM_BUFFER_FLAG_CONGESTION_AVIODANCE);
-                break;
-            }
-
-            cw = get_congestion_window(handle->cur_um_node_for_usb->next);
-
-            if(GET_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags))
-            {
-                if((cw == CW_LOWER_BOUND))
-                {
-                    TOGGLE_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags);
-                    test_flag_work = 0;
-                }
-            }
-            else
-            {
-                if(cw == CW_UPPER_BOUND)
-                {
-                    TOGGLE_CONGESTION_AVOIDANCE_FLAG(handle->um_buffer_flags);
-                    test_flag_work = 1;
-                }
-            }
         break; /* UM_BUFFER_CONFIG_CA_FEEDBACK */
         default:
             /* failed args validation during buffer initialisation */
@@ -308,7 +352,20 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
             }
             handle->um_buffer_state = UM_BUFFER_STATE_PLAY;
         }
+        else
+        {
+            /* no need to notify listeners until buffer is not in PLAY state */
+            return result;
+        }
     }
+
+    while(ca_listener != NULL)
+    {
+        free_buffer_size = free_buffer_size == 0 ? get_free_buffer_persentage(handle) : free_buffer_size;
+        ca_listener->listener_handle((void *)&free_buffer_size);
+        ca_listener = ca_listener->next;
+    }
+   
     return result;
 }
 
@@ -379,6 +436,63 @@ void um_handle_pause(struct um_buffer_handle *handle)
     reset_nodes_states_to_default(handle);
 }
 
+uint32_t um_handle_register_listener(struct um_buffer_handle *handle, enum um_buffer_listener_type type, listener_callback clbk)
+{
+    uint32_t result;
+
+    UM_ASSERT(handle != NULL, UM_LISTENERS_WRONG_ID);
+    UM_ASSERT(type < UM_LISTENER_TYPE_COUNT, UM_LISTENERS_WRONG_ID);
+    UM_ASSERT(clbk != NULL, UM_LISTENERS_WRONG_ID);
+
+    result = allocate_listeners_from_pool(type);
+
+    UM_ASSERT(result != UM_LISTENERS_WRONG_ID, result);
+
+    if(handle->listeners[type] == NULL)
+    {
+        handle->listeners[type] = &(_listener_pool[type][result]);
+        handle->listeners[type]->listener_handle = clbk;
+    }
+    else
+    {
+        struct um_buffer_listener *last = _get_last_listener(handle->listeners[type]);
+        last->next = &(_listener_pool[type][result]);
+        last->next->listener_handle = clbk;
+    }
+
+    return result;
+}
+
+void um_handle_unregister_listener(struct um_buffer_handle *handle, enum um_buffer_listener_type type, uint32_t listener_id)
+{
+    struct um_buffer_listener *curr;
+
+    UM_ASSERT(handle != NULL, );
+    UM_ASSERT(handle->listeners[type] != NULL, );
+    UM_ASSERT(type < UM_LISTENER_TYPE_COUNT, );
+    UM_ASSERT(listener_id < UM_BUFFER_LISTENER_COUNT, );
+
+    curr = handle->listeners[type];
+
+    if(curr->id == listener_id)
+    {
+        curr->listener_handle = NULL;
+        handle->listeners[type] = curr->next;
+        curr->next = NULL;
+    }
+
+    while(curr->next != NULL)
+    {
+        if(curr->next->id == listener_id)
+        {
+            curr->next->listener_handle = NULL;
+            curr->next = curr->next->next;
+            curr->next->next = NULL;
+            return;
+        }
+    }
+}
+
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 void audio_dma_complete_cb(struct um_buffer_handle *handle)
 {
@@ -401,7 +515,6 @@ void audio_dma_complete_cb(struct um_buffer_handle *handle)
         /* keep handling it as for UM_NODE_STATE_HW_FINISHED state */
     case UM_NODE_STATE_HW_FINISHED:
         um_handle_pause(handle);
-        test_flag_work = 0;
         break;
     case UM_NODE_STATE_INITIAL:
     case UM_NODE_STATE_USB_FINISHED:
