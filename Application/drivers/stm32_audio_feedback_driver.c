@@ -2,14 +2,21 @@
 
 #include "stm32_audio_feedback_driver.h"
 
+#include <stdbool.h>
+
 #define ARR_SIZE(arr)   (sizeof(arr) / sizeof(arr[0]))
 
 #define FB_RATE         8
+
+#define BUFF_FREE_SPACE_UPPER_BOUND     56
+#define BUFF_FREE_SPACE_LOWER_BOUND     25
 
 TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
 
 static uint32_t g_mclk_to_sof_ratios[FB_RATE << 1];
+static bool g_is_feedback_calculated = true;
+static uint32_t g_ideal_bitrate;
 
 static void FBCK_DMA_PreConfig(void)
 {
@@ -25,7 +32,7 @@ static void FBCK_DMA_PreConfig(void)
   * @param None
   * @retval None
   */
-void FBCK_Init(void)
+void FBCK_Init(uint32_t ideal_bitrate)
 {
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_SlaveConfigTypeDef sSlaveConfig = {0};
@@ -66,16 +73,29 @@ void FBCK_Init(void)
   sConfigIC.ICFilter = 0;
   HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_1);
 
+  g_ideal_bitrate = ideal_bitrate;
+
 }
 
 void FBCK_Start(void)
 {
     HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, g_mclk_to_sof_ratios, ARR_SIZE(g_mclk_to_sof_ratios));
+    g_is_feedback_calculated = true;
 }
 
 void FBCK_Stop(void)
 {
     HAL_TIM_IC_Stop_DMA(&htim2, TIM_CHANNEL_1);
+    g_is_feedback_calculated = true;
+}
+
+void FBCK_adjust_bitrate(uint8_t free_buf_space)
+{
+    if(free_buf_space > 100) return;
+    if(free_buf_space >= BUFF_FREE_SPACE_UPPER_BOUND)
+        g_is_feedback_calculated = false;
+    else if(free_buf_space <= BUFF_FREE_SPACE_LOWER_BOUND)
+        g_is_feedback_calculated = true;
 }
 
 /*=====================================================================*/
@@ -84,15 +104,22 @@ void FBCK_Stop(void)
 
 static uint32_t __update_mclk_to_sof_ratio(uint8_t start_idx)
 {
-    uint32_t res = 0;
-    uint8_t i = 0;
-
-    for(i = 0; i < FB_RATE; i++)
+    if(g_is_feedback_calculated)
     {
-        res += g_mclk_to_sof_ratios[start_idx + i];
-    }
+        uint32_t res = 0;
+        uint8_t i = 0;
 
-    return res;
+        for(i = 0; i < FB_RATE; i++)
+        {
+            res += g_mclk_to_sof_ratios[start_idx + i];
+        }
+
+        return res;
+    }
+    else
+    {
+        return g_ideal_bitrate;
+    }
 }
 
 void HAL_TIM_IC_CaptureHalfCpltCallback(TIM_HandleTypeDef *htim)

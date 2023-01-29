@@ -12,6 +12,8 @@
 #include "audio_buffer.h"
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 enum
 {
@@ -93,7 +95,16 @@ static uint32_t msm261s_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size)
 uint32_t divider = 0;
 void audio_buffer_out_free_space_handle(void *free_space_persentage)
 {
+  char str[5];
   uint32_t free_space = *(uint32_t *)free_space_persentage;
+  FBCK_adjust_bitrate(free_space);
+  
+  sprintf(str, "%ld\n", free_space);
+  if((divider % 200) == 0)
+  {
+    board_uart_write(str, strlen(str));
+  }
+  divider++;
 }
 
 int main(void)
@@ -104,7 +115,7 @@ int main(void)
   EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 48000);
   MEMS_MIC_Init();
   Analog_MIC_Init();
-  FBCK_Init();
+  FBCK_Init(0x300000);
 
   um_out_buffer = (struct um_buffer_handle *) malloc(sizeof(struct um_buffer_handle));
   um_in_buffer = (struct um_buffer_handle *) malloc(sizeof(struct um_buffer_handle));
