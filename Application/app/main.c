@@ -90,6 +90,12 @@ static uint32_t msm261s_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size)
   return 0;
 }
 
+uint32_t divider = 0;
+void audio_buffer_out_free_space_handle(void *free_space_persentage)
+{
+  uint32_t free_space = *(uint32_t *)free_space_persentage;
+}
+
 int main(void)
 {
   int result = 0;
@@ -113,7 +119,7 @@ int main(void)
   {
     while(1) {}
   }
-  
+  um_handle_register_listener(um_out_buffer, UM_LISTENER_TYPE_CA, audio_buffer_out_free_space_handle);
   tusb_init();
 
   while(true)
