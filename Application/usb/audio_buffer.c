@@ -96,13 +96,13 @@ static uint32_t get_free_buffer_persentage(struct um_buffer_handle *handle)
     {
         if(curr->um_node_state == UM_NODE_STATE_UNDER_HW)
         {
-            return (result * 100) / handle->total_buffer_size;
+            return (result * 100) / handle->um_number_of_nodes;
         }
 
-        result += (handle->um_buffer_size_in_one_node - curr->um_node_offset);
+        result++;
     }
 
-    return (result * 100) / handle->total_buffer_size;
+    return (result * 100) / handle->um_number_of_nodes;
 }
 
 static void reset_nodes_states_to_default(struct um_buffer_handle *handle)

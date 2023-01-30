@@ -8,7 +8,7 @@
 
 #define FB_RATE         8
 
-#define BUFF_FREE_SPACE_UPPER_BOUND     56
+#define BUFF_FREE_SPACE_UPPER_BOUND     75
 #define BUFF_FREE_SPACE_LOWER_BOUND     25
 
 TIM_HandleTypeDef htim2;
