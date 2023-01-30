@@ -92,19 +92,10 @@ static uint32_t msm261s_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size)
   return 0;
 }
 
-uint32_t divider = 0;
 void audio_buffer_out_free_space_handle(void *free_space_persentage)
 {
-  char str[5];
   uint32_t free_space = *(uint32_t *)free_space_persentage;
   FBCK_adjust_bitrate(free_space);
-  
-  sprintf(str, "%ld\n", free_space);
-  if((divider % 200) == 0)
-  {
-    board_uart_write(str, strlen(str));
-  }
-  divider++;
 }
 
 int main(void)
