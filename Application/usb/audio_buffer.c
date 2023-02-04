@@ -128,19 +128,13 @@ int um_handle_init( struct um_buffer_handle *handle,
                     um_play_fnc play, um_pause_resume_fnc pause_resume )
 {
     uint8_t i = 0;
-    if(handle == NULL)
-    {
-        return UM_EARGS;
-    }
 
-    if(
-       GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_NONE
-    && GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_DROP_HALF_PKT
-    && GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_FEEDBACK
-    )
-    {
-        return UM_EARGS;
-    }
+    UM_RET_IF_FALSE(handle != NULL, UM_EARGS);
+
+    UM_RET_IF_FALSE(
+        GET_CONFIG_CA_ALGORITM(config) == UM_BUFFER_CONFIG_CA_NONE ||
+        GET_CONFIG_CA_ALGORITM(config) == UM_BUFFER_CONFIG_CA_DROP_HALF_PKT ||
+        GET_CONFIG_CA_ALGORITM(config) == UM_BUFFER_CONFIG_CA_FEEDBACK, UM_EARGS);
 
     handle->um_usb_packet_size = usb_packet_size;
     handle->um_usb_frame_in_node = usb_frame_in_um_node_count;
@@ -156,22 +150,16 @@ int um_handle_init( struct um_buffer_handle *handle,
         handle->congestion_avoidance_bucket = (uint8_t *)malloc((usb_packet_size * usb_frame_in_um_node_count * um_node_count));
     }
 
-    if(handle->congestion_avoidance_bucket == NULL)
-    {
-        return UM_ENOMEM;
-    }
+    UM_RET_IF_FALSE(handle->congestion_avoidance_bucket != NULL, UM_ENOMEM);
 
     handle->cur_um_node_for_hw = *_alloc_um_nodes(handle, &(handle->start_um_node));
-    if(handle->cur_um_node_for_hw == NULL)
-    {
-        return UM_ENOMEM;
-    }
+    UM_RET_IF_FALSE(handle->cur_um_node_for_hw != NULL, UM_ENOMEM);
 
     handle->cur_um_node_for_hw->next = handle->start_um_node;
     handle->cur_um_node_for_hw = handle->start_um_node;
     handle->cur_um_node_for_usb = handle->start_um_node;
 
-    //main buffer pointer was copied inside start_um_node struct; allocate new memory for CA algorithm (if it is nessesary)
+    /* main buffer pointer was copied inside start_um_node struct; allocate new memory for CA algorithm (if it is nessesary) */
     if(GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_NONE)
     {
         handle->congestion_avoidance_bucket += (usb_packet_size * usb_frame_in_um_node_count * um_node_count);
@@ -215,7 +203,7 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
             if(handle->cur_um_node_for_usb->um_node_offset == 0)
             {
                 /* Check for buffer overflow */
-                UM_ASSERT((handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_HW_FINISHED) || (handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_INITIAL), result);
+                UM_VERIFY((handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_HW_FINISHED) || (handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_INITIAL));
 
                 handle->cur_um_node_for_usb->um_node_state = UM_NODE_STATE_UNDER_USB;
             }
@@ -235,7 +223,7 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
             if((handle->cur_um_node_for_usb->um_node_offset == 0) && !GET_HALF_USB_FRAME_FLAG(handle->um_buffer_flags))
             {
                 /* Check for buffer overflow */
-                UM_ASSERT((handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_HW_FINISHED) || (handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_INITIAL), result);
+                UM_VERIFY((handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_HW_FINISHED) || (handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_INITIAL));
     
                 handle->cur_um_node_for_usb->um_node_state = UM_NODE_STATE_UNDER_USB;
             }
@@ -333,7 +321,7 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
         default:
             /* failed args validation during buffer initialisation */
             /* should not be here.... */
-            UM_ASSERT(0, NULL);
+            UM_VERIFY(0);
 
     }
 
@@ -400,11 +388,7 @@ uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size)
         }
     }
 
-    if(handle->cur_um_node_for_usb->um_node_state != UM_NODE_STATE_UNDER_USB)
-    {
-        /* state machine error */
-        return result;
-    }
+    UM_VERIFY(handle->cur_um_node_for_usb->um_node_state == UM_NODE_STATE_UNDER_USB);
 
     if(handle->cur_um_node_for_usb->um_node_offset >= (handle->um_usb_frame_in_node * handle->um_usb_packet_size))
     {
@@ -440,13 +424,13 @@ uint32_t um_handle_register_listener(struct um_buffer_handle *handle, enum um_bu
 {
     uint32_t result;
 
-    UM_ASSERT(handle != NULL, UM_LISTENERS_WRONG_ID);
-    UM_ASSERT(type < UM_LISTENER_TYPE_COUNT, UM_LISTENERS_WRONG_ID);
-    UM_ASSERT(clbk != NULL, UM_LISTENERS_WRONG_ID);
+    UM_RET_IF_FALSE(handle != NULL, UM_LISTENERS_WRONG_ID);
+    UM_RET_IF_FALSE(type < UM_LISTENER_TYPE_COUNT, UM_LISTENERS_WRONG_ID);
+    UM_RET_IF_FALSE(clbk != NULL, UM_LISTENERS_WRONG_ID);
 
     result = allocate_listeners_from_pool(type);
 
-    UM_ASSERT(result != UM_LISTENERS_WRONG_ID, result);
+    UM_RET_IF_FALSE(result != UM_LISTENERS_WRONG_ID, UM_LISTENERS_WRONG_ID);
 
     if(handle->listeners[type] == NULL)
     {
@@ -467,10 +451,10 @@ void um_handle_unregister_listener(struct um_buffer_handle *handle, enum um_buff
 {
     struct um_buffer_listener *curr;
 
-    UM_ASSERT(handle != NULL, );
-    UM_ASSERT(handle->listeners[type] != NULL, );
-    UM_ASSERT(type < UM_LISTENER_TYPE_COUNT, );
-    UM_ASSERT(listener_id < UM_BUFFER_LISTENER_COUNT, );
+    UM_RET_IF_FALSE(handle != NULL,);
+    UM_RET_IF_FALSE(handle->listeners[type] != NULL,);
+    UM_RET_IF_FALSE(type < UM_LISTENER_TYPE_COUNT,);
+    UM_RET_IF_FALSE(listener_id < UM_BUFFER_LISTENER_COUNT,);
 
     curr = handle->listeners[type];
 
@@ -497,7 +481,7 @@ void um_handle_unregister_listener(struct um_buffer_handle *handle, enum um_buff
 void audio_dma_complete_cb(struct um_buffer_handle *handle)
 {
     /* State machine verification */
-    UM_ASSERT(handle->cur_um_node_for_hw->um_node_state == UM_NODE_STATE_UNDER_HW || handle->cur_um_node_for_hw->um_node_state == UM_NODE_STATE_INITIAL, );
+    UM_VERIFY(handle->cur_um_node_for_hw->um_node_state == UM_NODE_STATE_UNDER_HW || handle->cur_um_node_for_hw->um_node_state == UM_NODE_STATE_INITIAL);
 
     handle->cur_um_node_for_hw->um_node_state = UM_NODE_STATE_HW_FINISHED;
     handle->cur_um_node_for_hw = handle->cur_um_node_for_hw->next;
@@ -510,7 +494,7 @@ void audio_dma_complete_cb(struct um_buffer_handle *handle)
         is coming from USB endpoint. */
 
         /* Verify. that cur_um_node_for_hw equal to cur_um_node_for_usb */
-        UM_ASSERT(handle->cur_um_node_for_hw == handle->cur_um_node_for_usb, );
+        UM_VERIFY(handle->cur_um_node_for_hw == handle->cur_um_node_for_usb);
 
         /* keep handling it as for UM_NODE_STATE_HW_FINISHED state */
     case UM_NODE_STATE_HW_FINISHED:
@@ -523,7 +507,7 @@ void audio_dma_complete_cb(struct um_buffer_handle *handle)
     case UM_NODE_STATE_UNDER_HW:
     default:
         /* State machine error */
-        UM_ASSERT(0, );
+        UM_VERIFY(0);
         break;
     }
 }
@@ -536,5 +520,4 @@ void free_um_buffer_handle(struct um_buffer_handle *handle)
 
     free(handle->start_um_node->um_buf);
     _free_um_nodes(handle->start_um_node->next, handle->start_um_node);
-    free(handle);
 }

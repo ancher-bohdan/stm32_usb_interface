@@ -9,10 +9,16 @@
     if ( (*ARM_CM_DHCSR) & 1UL ) __asm("BKPT #0\n"); /* Only halt mcu if debugger is attached */            \
 } while(0)
 
-#define UM_ASSERT(cond, ret_val)  do        \
+#define UM_VERIFY(cond)  do                 \
 {                                           \
-    if( !(cond) ) { BREAK; return ret_val; }\
+    if( !(cond) ) { BREAK; while(1){} }     \
 } while(0)
+
+#define UM_RET_IF_FALSE(cond, retval) do    \
+{                                           \
+    if( !(cond) ) { BREAK; return retval; } \
+} while(0)
+
 
 #define CW_LOWER_BOUND                      1
 #define CW_UPPER_BOUND                      3
