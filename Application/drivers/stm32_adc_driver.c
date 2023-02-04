@@ -7,6 +7,29 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 TIM_HandleTypeDef htim1;
 
+#define COUNT_SIZE    5
+static uint8_t counter25_idx;
+static uint8_t counter50_idx;
+static uint8_t counter75_idx;
+
+enum __target_freq {
+  freq_47000 = 0,
+  freq_48000,
+  freq_49000
+};
+
+enum __target_quantity {
+  period = 0,
+  pulse
+};
+
+static uint32_t period_pulse_table[3][2] =
+{ /* Period       Pulse */
+  {   3574,       1787  }, /* 47000 kHz */
+  {   3500,       1750  }, /* 48000 kHz */
+  {   3428,       1714  }  /* 49000 kHz */
+};
+
 /**
   * @brief ADC1 Initialization Function
   * @param None
@@ -188,6 +211,50 @@ void Analog_MIC_Stop(void)
   HAL_ADC_Stop_DMA(&hadc1);
   hadc1.DMA_Handle->Instance->CR &= ~((uint32_t)DMA_SxCR_DBM);
   
+}
+
+void Analog_MIC_adjust_bitrate(uint8_t free_buf_space)
+{
+  if(free_buf_space >= 75)
+  {
+    counter25_idx = 0;
+    counter50_idx = 0;
+    counter75_idx++;
+  }
+  else if(free_buf_space >= 50 && free_buf_space < 75)
+  {
+    counter25_idx = 0;
+    counter50_idx++;
+    counter75_idx = 0;
+  }
+  else if (free_buf_space >= 25 && free_buf_space < 50)
+  {
+    counter25_idx++;
+    counter50_idx = 0;
+    counter75_idx = 0;
+  }
+
+  if(counter25_idx == COUNT_SIZE)
+  {
+    /* increase freq. to 49 kHz */
+    __HAL_TIM_SET_AUTORELOAD(&htim1, period_pulse_table[freq_49000][period]);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, period_pulse_table[freq_49000][pulse]);
+    counter25_idx = 0;
+  }
+  else if(counter50_idx == COUNT_SIZE)
+  {
+    /* restore 48 kHz */
+    __HAL_TIM_SET_AUTORELOAD(&htim1, period_pulse_table[freq_48000][period]);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, period_pulse_table[freq_48000][pulse]);
+    counter50_idx = 0;
+  }
+  else if (counter75_idx == COUNT_SIZE)
+  {
+    /* decrease freq. to 47 kHz */
+    __HAL_TIM_SET_AUTORELOAD(&htim1, period_pulse_table[freq_47000][period]);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, period_pulse_table[freq_47000][pulse]);
+    counter75_idx = 0;
+  }
 }
 
 __weak void Analog_MIC_ConvCpltCallback(void)

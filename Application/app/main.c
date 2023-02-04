@@ -98,6 +98,12 @@ void audio_buffer_out_free_space_handle(void *free_space_persentage)
   FBCK_adjust_bitrate(free_space);
 }
 
+void audio_buffer_in_free_space_handle(void *free_space_persentage)
+{
+  uint32_t free_space = *(uint32_t *)free_space_persentage;
+  Analog_MIC_adjust_bitrate(free_space);
+}
+
 int main(void)
 {
   int result = 0;
@@ -121,7 +127,10 @@ int main(void)
   {
     while(1) {}
   }
+
   um_handle_register_listener(um_out_buffer, UM_LISTENER_TYPE_CA, audio_buffer_out_free_space_handle);
+  um_handle_register_listener(um_in_buffer, UM_LISTENER_TYPE_CA, audio_buffer_in_free_space_handle);
+
   tusb_init();
 
   while(true)

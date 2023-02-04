@@ -360,6 +360,8 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
 uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size)
 {
     uint8_t *result = NULL;
+    struct um_buffer_listener *ca_listener = handle->listeners[UM_LISTENER_TYPE_CA];
+    uint32_t free_buffer_size = 0;
 
     if(handle->um_buffer_state != UM_BUFFER_STATE_PLAY)
     {
@@ -409,6 +411,13 @@ uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size)
     result = handle->cur_um_node_for_usb->um_buf + handle->cur_um_node_for_usb->um_node_offset;
 
     handle->cur_um_node_for_usb->um_node_offset += pkt_size;
+
+    while(ca_listener != NULL)
+    {
+        free_buffer_size = free_buffer_size == 0 ? get_free_buffer_persentage(handle) : free_buffer_size;
+        ca_listener->listener_handle((void *)&free_buffer_size);
+        ca_listener = ca_listener->next;
+    }
 
     return result;
 }
