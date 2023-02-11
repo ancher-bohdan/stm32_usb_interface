@@ -14,4 +14,4 @@ PROJECT_SOURCE += $(wildcard Application/drivers/*.c)
 PROJECT_SOURCE += $(wildcard Application/app/*.c)
 SRC_C += $(PROJECT_SOURCE)
 
-include tools/rules.mk
+include USB/tinyusb/examples/rules.mk

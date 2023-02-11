@@ -39,6 +39,8 @@ CFLAGS_OPTIMIZED ?= -Os
 
 CC = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
+AS = $(CC) -x assembler-with-cpp
+LD = $(CC)
 GDB = $(CROSS_COMPILE)gdb
 OBJCOPY = $(CROSS_COMPILE)objcopy
 SIZE = $(CROSS_COMPILE)size
