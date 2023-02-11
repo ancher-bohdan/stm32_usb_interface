@@ -2,8 +2,6 @@
 
 #include "stm32_audio_feedback_driver.h"
 
-#include <stdbool.h>
-
 #define ARR_SIZE(arr)   (sizeof(arr) / sizeof(arr[0]))
 
 #define FB_RATE         8
@@ -18,13 +16,23 @@ static uint32_t g_mclk_to_sof_ratios[FB_RATE << 1];
 static bool g_is_feedback_calculated = true;
 static uint32_t g_ideal_bitrate;
 
+static void __fbck_int_enable(void)
+{
+    HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+}
+
+static void __fbck_int_disable(void)
+{
+    HAL_NVIC_DisableIRQ(DMA1_Stream5_IRQn);
+}
+
 static void FBCK_DMA_PreConfig(void)
 {
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+  __fbck_int_enable();
 }
 
 /**
@@ -96,6 +104,18 @@ void FBCK_adjust_bitrate(uint8_t free_buf_space)
         g_is_feedback_calculated = false;
     else if(free_buf_space <= BUFF_FREE_SPACE_LOWER_BOUND)
         g_is_feedback_calculated = true;
+}
+
+void FBCK_int_set(bool enable)
+{
+    if(enable)
+    {
+        __fbck_int_enable();
+    }
+    else
+    {
+        __fbck_int_disable();
+    }
 }
 
 /*=====================================================================*/

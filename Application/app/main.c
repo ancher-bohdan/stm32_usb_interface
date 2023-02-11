@@ -43,6 +43,12 @@ struct um_buffer_handle *um_out_buffer, *um_in_buffer;
 
 #define N_SAMPLE_RATES  TU_ARRAY_SIZE(sample_rates)
 
+#define FBCK_TASK_QUEUE_SIZE    2
+OSAL_QUEUE_DEF(FBCK_int_set, __fbck_qdef, FBCK_TASK_QUEUE_SIZE, uint32_t);
+static osal_queue_t __fbck_q;
+
+void feedback_sender_task(void);
+
 static void cs43l22_play(uint32_t addr, uint32_t size)
 {
   EVAL_AUDIO_Play((uint16_t *)addr, size, DMA_DOUBLE_BUFFER_MODE_ENABLE);
@@ -114,6 +120,9 @@ int main(void)
   Analog_MIC_Init();
   FBCK_Init(0x300000);
 
+  __fbck_q = osal_queue_create(&__fbck_qdef);
+  if(__fbck_q == NULL) while(1) {}
+
   um_out_buffer = (struct um_buffer_handle *) malloc(sizeof(struct um_buffer_handle));
   um_in_buffer = (struct um_buffer_handle *) malloc(sizeof(struct um_buffer_handle));
 
@@ -135,6 +144,7 @@ int main(void)
 
   while(true)
   {
+    feedback_sender_task();
     tud_task();
   }
 
@@ -433,16 +443,29 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport, uint8_t itf, uint8_t ep_in, u
 void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf, audio_feedback_params_t* feedback_param)
 {
   (void)func_id;
-  (void)alt_itf;
 
   feedback_param->method = AUDIO_FEEDBACK_METHOD_FREQUENCY_FIXED;
   feedback_param->frequency.mclk_freq = 256 * 48000;
   feedback_param->sample_freq = 48000;
 }
 
+
+void feedback_sender_task(void)
+{
+  while(1)
+  {
+    uint32_t new_feedback;
+    if( !osal_queue_receive(__fbck_q, &new_feedback, UINT32_MAX) ) return;
+
+    tud_audio_feedback_update(0, new_feedback);
+  }
+}
+
 void FBCK_send_feedback(uint32_t feedback)
 {
-  tud_audio_feedback_update(0, feedback);
+  uint32_t f = feedback;
+
+  osal_queue_send(__fbck_q, &f, true);
 }
 
 void EVAL_AUDIO_HalfCpltCallback(void)
