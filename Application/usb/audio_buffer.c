@@ -299,7 +299,7 @@ uint8_t *um_handle_enqueue(struct um_buffer_handle *handle, uint16_t pkt_size)
                     /* reset offsets; in case of user deside to drop this packet */
                     handle->cur_um_node_for_usb->um_node_offset -= pkt_size;
                     handle->um_abs_offset -= pkt_size;
-                    return result;
+                    UM_RET_IF_FALSE(0, result);
                 }
                 handle->cur_um_node_for_usb->next->um_node_offset = handle->cur_um_node_for_usb->um_node_offset % handle->um_buffer_size_in_one_node;
                 handle->cur_um_node_for_usb->um_node_offset = 0;
@@ -386,7 +386,8 @@ uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size)
         case UM_NODE_STATE_HW_FINISHED:
         case UM_NODE_STATE_UNDER_USB:
         default:
-            return result;
+            /* state machine error; shouldn`t be here... */
+            UM_VERIFY(0);
         }
     }
 
@@ -394,11 +395,8 @@ uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size)
 
     if(handle->cur_um_node_for_usb->um_node_offset >= (handle->um_usb_frame_in_node * handle->um_usb_packet_size))
     {
-        if(handle->cur_um_node_for_usb->next->um_node_state != UM_NODE_STATE_HW_FINISHED)
-        {
-            /* buffer underflow */
-            return result;
-        }
+        /* check for buffer underflow */
+        UM_RET_IF_FALSE(handle->cur_um_node_for_usb->next->um_node_state == UM_NODE_STATE_HW_FINISHED, result);
 
         handle->cur_um_node_for_usb->next->um_node_offset = handle->cur_um_node_for_usb->um_node_offset % (handle->um_usb_frame_in_node * handle->um_usb_packet_size);
         handle->cur_um_node_for_usb->um_node_offset = 0;
