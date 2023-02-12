@@ -118,7 +118,7 @@ int main(void)
   EVAL_AUDIO_Init(OUTPUT_DEVICE_AUTO, 100, 48000);
   MEMS_MIC_Init();
   Analog_MIC_Init();
-  FBCK_Init(0x300000);
+  FBCK_Init(0x18000);
 
   __fbck_q = osal_queue_create(&__fbck_qdef);
   if(__fbck_q == NULL) while(1) {}
