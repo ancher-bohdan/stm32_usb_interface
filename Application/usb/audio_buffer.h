@@ -86,6 +86,7 @@ struct um_buffer_handle
     struct um_node *start_um_node;
     uint8_t *congestion_avoidance_bucket;
 
+    uint32_t um_usb_max_packet_size;
     uint32_t um_usb_packet_size;
     uint16_t um_usb_frame_in_node;
     uint16_t um_number_of_nodes;
@@ -108,7 +109,7 @@ typedef void (*um_play_fnc)(uint32_t addr, uint32_t size);
 typedef uint32_t (*um_pause_resume_fnc)(uint32_t Cmd, uint32_t Addr, uint32_t Size);
 
 int um_handle_init( struct um_buffer_handle *handle,
-                    uint32_t usb_packet_size,
+                    uint32_t usb_max_packet_size,
                     uint32_t usb_frame_in_um_node_count,
                     uint32_t um_node_count,
                     uint8_t configs,
@@ -121,6 +122,9 @@ void um_handle_pause(struct um_buffer_handle *handle);
 
 uint32_t um_handle_register_listener(struct um_buffer_handle *handle, enum um_buffer_listener_type type, listener_callback clbk);
 void um_handle_unregister_listener(struct um_buffer_handle *handle, enum um_buffer_listener_type type, uint32_t listener_id);
+
+int um_handle_set_driver(struct um_buffer_handle *handle, uint32_t usb_packet_size,
+                    um_play_fnc play, um_pause_resume_fnc pause_resume);
 
 void audio_dma_complete_cb(struct um_buffer_handle *handle);
 

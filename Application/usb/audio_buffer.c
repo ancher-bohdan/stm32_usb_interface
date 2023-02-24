@@ -121,7 +121,7 @@ static void reset_nodes_states_to_default(struct um_buffer_handle *handle)
 }
 
 int um_handle_init( struct um_buffer_handle *handle,
-                    uint32_t usb_packet_size,
+                    uint32_t usb_max_packet_size,
                     uint32_t usb_frame_in_um_node_count,
                     uint32_t um_node_count,
                     uint8_t config,
@@ -136,18 +136,22 @@ int um_handle_init( struct um_buffer_handle *handle,
         GET_CONFIG_CA_ALGORITM(config) == UM_BUFFER_CONFIG_CA_DROP_HALF_PKT ||
         GET_CONFIG_CA_ALGORITM(config) == UM_BUFFER_CONFIG_CA_FEEDBACK, UM_EARGS);
 
-    handle->um_usb_packet_size = usb_packet_size;
+    handle->um_usb_max_packet_size = usb_max_packet_size;
+
+    /* Consider maximum possible usb packet size, */
+    /* that current instance of the um_buffer can handle, as current */
+    handle->um_usb_packet_size = usb_max_packet_size;
     handle->um_usb_frame_in_node = usb_frame_in_um_node_count;
     handle->um_number_of_nodes = um_node_count;
 
     // allocate memory for whole internal buffer; store pointer to it here temporary
     if(GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_NONE)
     {
-        handle->congestion_avoidance_bucket = (uint8_t *)malloc((usb_packet_size * usb_frame_in_um_node_count * um_node_count) + usb_packet_size);
+        handle->congestion_avoidance_bucket = (uint8_t *)malloc((usb_max_packet_size * usb_frame_in_um_node_count * um_node_count) + usb_max_packet_size);
     }
     else
     {
-        handle->congestion_avoidance_bucket = (uint8_t *)malloc((usb_packet_size * usb_frame_in_um_node_count * um_node_count));
+        handle->congestion_avoidance_bucket = (uint8_t *)malloc((usb_max_packet_size * usb_frame_in_um_node_count * um_node_count));
     }
 
     UM_RET_IF_FALSE(handle->congestion_avoidance_bucket != NULL, UM_ENOMEM);
@@ -162,7 +166,7 @@ int um_handle_init( struct um_buffer_handle *handle,
     /* main buffer pointer was copied inside start_um_node struct; allocate new memory for CA algorithm (if it is nessesary) */
     if(GET_CONFIG_CA_ALGORITM(config) != UM_BUFFER_CONFIG_CA_NONE)
     {
-        handle->congestion_avoidance_bucket += (usb_packet_size * usb_frame_in_um_node_count * um_node_count);
+        handle->congestion_avoidance_bucket += (usb_max_packet_size * usb_frame_in_um_node_count * um_node_count);
     }
     else
     {
@@ -418,6 +422,23 @@ uint8_t *um_handle_dequeue(struct um_buffer_handle *handle, uint16_t pkt_size)
     }
 
     return result;
+}
+
+int um_handle_set_driver(struct um_buffer_handle *handle, uint32_t usb_packet_size,
+                    um_play_fnc play, um_pause_resume_fnc pause_resume)
+{
+    UM_RET_IF_FALSE(usb_packet_size <= handle->um_usb_max_packet_size, UM_ENOMEM);
+
+    if(handle->um_buffer_state == UM_BUFFER_STATE_PLAY)
+    {
+        um_handle_pause(handle);
+    }
+
+    handle->um_usb_packet_size = usb_packet_size;
+    handle->um_play = play;
+    handle->um_pause_resume = pause_resume;
+
+    return UM_EOK;
 }
 
 void um_handle_pause(struct um_buffer_handle *handle)

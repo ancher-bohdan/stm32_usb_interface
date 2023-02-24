@@ -15,6 +15,13 @@
 #include <stdio.h>
 #include <string.h>
 
+static void cs43l22_play(uint32_t addr, uint32_t size);
+static uint32_t cs43l22_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size);
+static void max9814_play(uint32_t addr, uint32_t size);
+static uint32_t max9814_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size);
+static void msm261s_play(uint32_t addr, uint32_t size);
+static uint32_t msm261s_pause_resume(uint32_t cmd, uint32_t addr, uint32_t size);
+
 enum
 {
   VOLUME_CTRL_0_DB = 0,
@@ -34,9 +41,27 @@ enum
 int8_t mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
 int16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
 int8_t selector = 1;
+
 struct {
   uint8_t __terminal_id;
-}in_terminal_lut[2] = { { .__terminal_id = UAC2_ENTITY_MIC_INPUT_TERMINAL1 }, { .__terminal_id = UAC2_ENTITY_MIC_INPUT_TERMINAL2 } };
+  uint32_t usb_packet_size;
+  um_play_fnc play_cb;
+  um_pause_resume_fnc pause_resume_cb;
+} in_terminal_lut[2] =
+{
+  {
+    .__terminal_id = UAC2_ENTITY_MIC_INPUT_TERMINAL1,
+    .usb_packet_size = 192,
+    .play_cb = max9814_play,
+    .pause_resume_cb = max9814_pause_resume,
+  },
+  {
+    .__terminal_id = UAC2_ENTITY_MIC_INPUT_TERMINAL2,
+    .usb_packet_size = 384,
+    .play_cb = msm261s_play,
+    .pause_resume_cb = msm261s_pause_resume,
+  }
+};
 
 const uint32_t sample_rates[] = { 48000 };
 
@@ -132,8 +157,10 @@ int main(void)
   result = um_handle_init(um_out_buffer, 192, 4, 4, UM_BUFFER_CONFIG_CA_FEEDBACK,
     cs43l22_play, cs43l22_pause_resume);
   result += um_handle_init(um_in_buffer, 384, 4, 4, UM_BUFFER_CONFIG_CA_NONE,
-//    max9814_play, max9814_pause_resume);
       msm261s_play, msm261s_pause_resume);
+
+  result += um_handle_set_driver(um_in_buffer, in_terminal_lut[selector-1].usb_packet_size,
+      in_terminal_lut[selector-1].play_cb, in_terminal_lut[selector-1].pause_resume_cb);
 
   if(result != UM_EOK)
   {
@@ -325,7 +352,14 @@ static bool tud_audio_selector_unit_set_request(uint8_t rhport, audio_control_re
 
     if((curr_data == 0) || (curr_data > 2)) return false;
 
-    selector = curr_data;
+    if(curr_data != selector)
+    {
+      if(um_handle_set_driver(um_in_buffer, in_terminal_lut[curr_data-1].usb_packet_size,
+          in_terminal_lut[curr_data-1].play_cb, in_terminal_lut[curr_data-1].pause_resume_cb) != UM_EOK)
+      return false;
+
+      selector = curr_data;
+    }
 
     TU_LOG1("Set selector value: %d\r\n", selector);
 
@@ -470,6 +504,7 @@ bool tud_audio_tx_done_pre_load_cb(uint8_t rhport, uint8_t itf, uint8_t ep_in, u
 void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf, audio_feedback_params_t* feedback_param)
 {
   (void)func_id;
+  (void)alt_itf;
 
   feedback_param->method = AUDIO_FEEDBACK_METHOD_FREQUENCY_FIXED;
   feedback_param->frequency.mclk_freq = 256 * current_sample_rate;
