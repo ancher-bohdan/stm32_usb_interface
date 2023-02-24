@@ -36,7 +36,7 @@
 #define UAC2_ENTITY_SPK_OUTPUT_TERMINAL 0x03
 // Microphone path
 #define UAC2_ENTITY_MIC_INPUT_TERMINAL1 0x11
-#define UAC2_ENTYTY_MIC_INPUT_TERMINAL2 0x12
+#define UAC2_ENTITY_MIC_INPUT_TERMINAL2 0x12
 #define UAC2_ENTYTY_MIC_SELECTOR_UNIT   0x13
 #define UAC2_ENTITY_MIC_OUTPUT_TERMINAL 0x14
 
@@ -105,7 +105,7 @@ enum
     /* Input Terminal Descriptor(4.7.2.4) */\
     TUD_AUDIO_DESC_INPUT_TERM(/*_termid*/ UAC2_ENTYTY_MIC_INPUT_TERMINAL2, /*_termtype*/ AUDIO_TERM_TYPE_IN_GENERIC_MIC, /*_assocTerm*/ 0x00, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_nchannelslogical*/ 0x02, /*_channelcfg*/ AUDIO_CHANNEL_CONFIG_NON_PREDEFINED, /*_idxchannelnames*/ 0x00, /*_ctrl*/ 0 * (AUDIO_CTRL_R << AUDIO_IN_TERM_CTRL_CONNECTOR_POS), /*_stridx*/ 0x00),\
     /* Selector Unit Descriptor(4.7.2.7) */\
-    TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS(/*_unitid*/UAC2_ENTYTY_MIC_SELECTOR_UNIT, /*_sourceid1*/ UAC2_ENTITY_MIC_INPUT_TERMINAL1, /*_sourceid2*/ UAC2_ENTYTY_MIC_INPUT_TERMINAL2, /*_controls*/(AUDIO_CTRL_RW << AUDIO_SELECTOR_UNIT_SELECTOR_CTRL_POS), /*_stridx*/0x05 ),\
+    TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS(/*_unitid*/UAC2_ENTYTY_MIC_SELECTOR_UNIT, /*_sourceid1*/ UAC2_ENTITY_MIC_INPUT_TERMINAL1, /*_sourceid2*/ UAC2_ENTITY_MIC_INPUT_TERMINAL2, /*_controls*/(AUDIO_CTRL_RW << AUDIO_SELECTOR_UNIT_SELECTOR_CTRL_POS), /*_stridx*/0x05 ),\
     /* Output Terminal Descriptor(4.7.2.5) */\
     TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTYTY_MIC_SELECTOR_UNIT, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_ctrl*/ 0x0000, /*_stridx*/ 0x00),\
     /* Standard AS Interface Descriptor(4.9.1) */\
@@ -123,7 +123,7 @@ enum
     /* Class-Specific AS Isochronous Audio Data Endpoint Descriptor(4.10.1.2) */\
     TUD_AUDIO_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO_CS_AS_ISO_DATA_EP_ATT_NON_MAX_PACKETS_OK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_lockdelayunit*/ AUDIO_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_UNDEFINED, /*_lockdelay*/ 0x0000),\
     /* Standard AS Isochronous Audio Feedback Endpoint Descriptor(4.10.1.1) */\
-    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ _epout | 0x80, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_NO_SYNC | TUSB_ISO_EP_ATT_EXPLICIT_FB), /*_maxEPsize*/ 64, /*_interval*/ 0x04),\
+    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ _epout | 0x80, /*_attr*/ (TUSB_XFER_ISOCHRONOUS | TUSB_ISO_EP_ATT_NO_SYNC | TUSB_ISO_EP_ATT_EXPLICIT_FB), /*_maxEPsize*/ 4, /*_interval*/ 0x04),\
     /* Class-Specific AS Isochronous Audio Feedback Endpoint Descriptor(4.10.1.2) */\
     TUD_AUDIO_DESC_CS_AS_ISO_EP(/*_attr*/ AUDIO_CS_AS_ISO_DATA_EP_ATT_NON_MAX_PACKETS_OK, /*_ctrl*/ AUDIO_CTRL_NONE, /*_lockdelayunit*/ AUDIO_CS_AS_ISO_DATA_EP_LOCK_DELAY_UNIT_UNDEFINED, /*_lockdelay*/ 0x0000),\
     /* Standard AS Interface Descriptor(4.9.1) */\

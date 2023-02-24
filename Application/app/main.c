@@ -33,7 +33,10 @@ enum
 
 int8_t mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
 int16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
-int8_t selector = 0;
+int8_t selector = 1;
+struct {
+  uint8_t __terminal_id;
+}in_terminal_lut[2] = { { .__terminal_id = UAC2_ENTITY_MIC_INPUT_TERMINAL1 }, { .__terminal_id = UAC2_ENTITY_MIC_INPUT_TERMINAL2 } };
 
 const uint32_t sample_rates[] = { 48000 };
 
@@ -310,18 +313,40 @@ static bool tud_audio_selector_unit_set_request(uint8_t rhport, audio_control_re
 {
   (void)rhport;
 
-  TU_ASSERT(request->bEntityID == UAC2_ENTITY_SPK_FEATURE_UNIT);
+  TU_ASSERT(request->bEntityID == UAC2_ENTYTY_MIC_SELECTOR_UNIT);
   TU_VERIFY(request->bRequest == AUDIO_CS_REQ_CUR);
 
   if(request->bControlSelector == AUDIO_SU_CTRL_SELECTOR)
   {
+    int8_t curr_data;
     TU_VERIFY(request->wLength == sizeof(audio_control_cur_1_t));
 
-    selector = ((audio_control_cur_1_t const *)buf)->bCur;
+    curr_data = ((audio_control_cur_1_t const *)buf)->bCur;
+
+    if((curr_data == 0) || (curr_data > 2)) return false;
+
+    selector = curr_data;
 
     TU_LOG1("Set selector value: %d\r\n", selector);
 
     return true;
+  }
+
+  return false;
+}
+
+static bool tud_audio_input_terminal_get_request(uint8_t rhport, audio_control_request_t const *request)
+{
+  TU_ASSERT((request->bEntityID == UAC2_ENTITY_MIC_INPUT_TERMINAL1) || (request->bEntityID == UAC2_ENTITY_MIC_INPUT_TERMINAL2));
+
+  if(request->bControlSelector == AUDIO_TE_CTRL_CONNECTOR && request->bRequest == AUDIO_CS_REQ_CUR)
+  {
+    audio_desc_channel_cluster_t cluster_config = { .bmChannelConfig = AUDIO_CHANNEL_CONFIG_FRONT_CENTER, .iChannelNames = 0 };
+    cluster_config.bNrChannels = in_terminal_lut[selector - 1].__terminal_id == request->bEntityID ? 1 : 0;
+
+    TU_LOG1("Get IN terminal (term id: %d) connected logical channels %d\r\n", request->bEntityID, cluster_config.bNrChannels);
+
+    return tud_audio_buffer_and_schedule_control_xfer(rhport, (tusb_control_request_t const *)request, &cluster_config, sizeof(cluster_config));
   }
 
   return false;
@@ -342,6 +367,8 @@ bool tud_audio_get_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
     return tud_audio_feature_unit_get_request(rhport, request);
   if (request->bEntityID == UAC2_ENTYTY_MIC_SELECTOR_UNIT)
     return tud_audio_selector_unit_get_request(rhport, request);
+  if (request->bEntityID == UAC2_ENTITY_MIC_INPUT_TERMINAL1 || request->bEntityID == UAC2_ENTITY_MIC_INPUT_TERMINAL2)
+    return tud_audio_input_terminal_get_request(rhport, request);
   else
   {
     TU_LOG1("Get request not handled, entity = %d, selector = %d, request = %d\r\n",
@@ -445,8 +472,8 @@ void tud_audio_feedback_params_cb(uint8_t func_id, uint8_t alt_itf, audio_feedba
   (void)func_id;
 
   feedback_param->method = AUDIO_FEEDBACK_METHOD_FREQUENCY_FIXED;
-  feedback_param->frequency.mclk_freq = 256 * 48000;
-  feedback_param->sample_freq = 48000;
+  feedback_param->frequency.mclk_freq = 256 * current_sample_rate;
+  feedback_param->sample_freq = current_sample_rate;
 }
 
 

@@ -129,6 +129,8 @@ char const* string_desc_arr [] =
   "000001",                       // 3: Serials, should use chip ID
   "TinyUSB Speakers",             // 4: Audio Interface
   "TinyUSB Microphone",           // 5: Audio Interface
+  "MAX9814 Analog Microphone",    // 6: Capture source 1
+  "MSM261S Digital Microphone",   // 7: Capture source 2
 };
 
 static uint16_t _desc_str[32];
