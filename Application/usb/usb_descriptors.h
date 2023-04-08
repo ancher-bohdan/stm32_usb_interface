@@ -66,6 +66,7 @@ enum
     + TUD_AUDIO_DESC_INPUT_TERM_LEN\
     + TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS_LEN\
     + TUD_AUDIO_DESC_OUTPUT_TERM_LEN\
+    + TUD_AUDIO_DESC_STD_AS_ISO_EP_LEN\
     /* Interface 1, Alternate 0 */\
     + TUD_AUDIO_DESC_STD_AS_INT_LEN\
     /* Interface 1, Alternate 1 */\
@@ -85,11 +86,11 @@ enum
     + TUD_AUDIO_DESC_STD_AS_ISO_EP_LEN\
     + TUD_AUDIO_DESC_CS_AS_ISO_EP_LEN)
 
-#define TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(_stridx, _epout, _epin) \
+#define TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(_stridx, _epout, _epin, _epint) \
     /* Standard Interface Association Descriptor (IAD) */\
     TUD_AUDIO_DESC_IAD(/*_firstitfs*/ ITF_NUM_AUDIO_CONTROL, /*_nitfs*/ 3, /*_stridx*/ 0x00),\
     /* Standard AC Interface Descriptor(4.7.1) */\
-    TUD_AUDIO_DESC_STD_AC(/*_itfnum*/ ITF_NUM_AUDIO_CONTROL, /*_nEPs*/ 0x00, /*_stridx*/ _stridx),\
+    TUD_AUDIO_DESC_STD_AC(/*_itfnum*/ ITF_NUM_AUDIO_CONTROL, /*_nEPs*/ 0x01, /*_stridx*/ _stridx),\
     /* Class-Specific AC Interface Header Descriptor(4.7.2) */\
     TUD_AUDIO_DESC_CS_AC(/*_bcdADC*/ 0x0200, /*_category*/ AUDIO_FUNC_HEADSET, /*_totallen*/ TUD_AUDIO_DESC_CLK_SRC_LEN+TUD_AUDIO_DESC_FEATURE_UNIT_TWO_CHANNEL_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_OUTPUT_TERM_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_INPUT_TERM_LEN+TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS_LEN+TUD_AUDIO_DESC_OUTPUT_TERM_LEN, /*_ctrl*/ AUDIO_CS_AS_INTERFACE_CTRL_LATENCY_POS),\
     /* Clock Source Descriptor(4.7.2.1) */\
@@ -108,6 +109,8 @@ enum
     TUD_AUDIO_DESC_SELECTOR_UNIT_TWO_IN_CHANNELS(/*_unitid*/UAC2_ENTYTY_MIC_SELECTOR_UNIT, /*_sourceid1*/ UAC2_ENTITY_MIC_INPUT_TERMINAL1, /*_sourceid2*/ UAC2_ENTITY_MIC_INPUT_TERMINAL2, /*_controls*/(AUDIO_CTRL_RW << AUDIO_SELECTOR_UNIT_SELECTOR_CTRL_POS), /*_stridx*/0x05 ),\
     /* Output Terminal Descriptor(4.7.2.5) */\
     TUD_AUDIO_DESC_OUTPUT_TERM(/*_termid*/ UAC2_ENTITY_MIC_OUTPUT_TERMINAL, /*_termtype*/ AUDIO_TERM_TYPE_USB_STREAMING, /*_assocTerm*/ 0x00, /*_srcid*/ UAC2_ENTYTY_MIC_SELECTOR_UNIT, /*_clkid*/ UAC2_ENTITY_CLOCK, /*_ctrl*/ 0x0000, /*_stridx*/ 0x00),\
+    /* Standard AC Interrupt Endpoint Descriptor(4.8.2.1) */\
+    TUD_AUDIO_DESC_STD_AS_ISO_EP(/*_ep*/ _epint, /*_attr*/ TUSB_XFER_INTERRUPT, /*_maxEPsize*/ 0x06, /*_interval*/ 0x04),\
     /* Standard AS Interface Descriptor(4.9.1) */\
     /* Interface 1, Alternate 0 - default alternate setting with 0 bandwidth */\
     TUD_AUDIO_DESC_STD_AS_INT(/*_itfnum*/ (uint8_t)(ITF_NUM_AUDIO_STREAMING_SPK), /*_altset*/ 0x00, /*_nEPs*/ 0x00, /*_stridx*/ 0x05),\

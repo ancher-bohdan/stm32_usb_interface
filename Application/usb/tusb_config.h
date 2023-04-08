@@ -169,6 +169,9 @@ extern "C" {
 // EP and buffer size - for isochronous Feedback EP
 #define CFG_TUD_AUDIO_ENABLE_FEEDBACK_EP          1
 
+// EP and buffer size - for AC interrupt EP
+#define CFG_TUD_AUDIO_INT_CTR_EPSIZE_IN           1
+
 // Number of Standard AS Interface Descriptors (4.9.1) defined per audio function - this is required to be able to remember the current alternate settings of these interfaces - We restrict us here to have a constant number for all audio functions (which means this has to be the maximum number of AS interfaces an audio function has and a second audio function with less AS interfaces just wastes a few bytes)
 #define CFG_TUD_AUDIO_FUNC_1_N_AS_INT 	          2
 
