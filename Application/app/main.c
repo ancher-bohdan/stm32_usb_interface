@@ -42,8 +42,11 @@ int8_t mute[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
 int16_t volume[CFG_TUD_AUDIO_FUNC_1_N_CHANNELS_RX + 1];
 int8_t selector = 1;
 
+uint8_t active_alt_settings[ITF_NUM_TOTAL];
+
 struct {
   uint8_t __terminal_id;
+  uint8_t valid_alt_settings_bitmap;
   uint32_t usb_packet_size;
   um_play_fnc play_cb;
   um_pause_resume_fnc pause_resume_cb;
@@ -54,12 +57,14 @@ struct {
     .usb_packet_size = 192,
     .play_cb = max9814_play,
     .pause_resume_cb = max9814_pause_resume,
+    .valid_alt_settings_bitmap = TU_BIT(ALT_SETTING_MIC_TOTAL) - 1,
   },
   {
     .__terminal_id = UAC2_ENTITY_MIC_INPUT_TERMINAL2,
     .usb_packet_size = 384,
     .play_cb = msm261s_play,
     .pause_resume_cb = msm261s_pause_resume,
+    .valid_alt_settings_bitmap = TU_BIT(ALT_SETTING_MIC_TOTAL) - 1,
   }
 };
 
@@ -386,6 +391,34 @@ static bool tud_audio_input_terminal_get_request(uint8_t rhport, audio_control_r
   return false;
 }
 
+static bool tud_audio_itf_active_alt_setting_get_request(uint8_t rhport, audio_control_request_t const *request)
+{
+  audio_control_cur_1_t ctrl_active_alt_setting;
+
+  ctrl_active_alt_setting.bCur = active_alt_settings[request->bInterface];
+  return tud_audio_buffer_and_schedule_control_xfer(rhport, (tusb_control_request_t const *)request, &ctrl_active_alt_setting, sizeof(ctrl_active_alt_setting));
+}
+
+static bool tud_audio_itf_valid_alt_setting_get_request(uint8_t rhport, audio_control_request_t const *request)
+{
+  uint8_t response[2];
+  response[0] = 1;
+  switch (request->bInterface)
+  {
+  case ITF_NUM_AUDIO_STREAMING_SPK:
+    /* For the speaker, all alt settings are valid */
+    response[1] = TU_BIT(ALT_SETTING_SPK_TOTAL) - 1;
+    break;
+  case ITF_NUM_AUDIO_STREAMING_MIC:
+    response[1] = in_terminal_lut[selector-1].valid_alt_settings_bitmap;
+    break;
+  default:
+    return false;
+  }
+
+  return tud_audio_buffer_and_schedule_control_xfer(rhport, (tusb_control_request_t const *)request, response, sizeof(response));
+}
+
 //--------------------------------------------------------------------+
 // Application Callback API Implementations
 //--------------------------------------------------------------------+
@@ -428,6 +461,27 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport, tusb_control_request_t const *p
   return false;
 }
 
+// Invoked when audio class specific get request received for an interface
+bool tud_audio_get_req_itf_cb(uint8_t rhport, tusb_control_request_t const * p_request)
+{
+  (void) rhport;
+  audio_control_request_t const *request = (audio_control_request_t const *)p_request;
+
+  TU_VERIFY(request->bInterface < ITF_NUM_TOTAL);
+  /* Used controls support only CUR attr */
+  TU_VERIFY(request->bRequest == AUDIO_CS_REQ_CUR);
+
+  switch(request->bControlSelector)
+  {
+    case AUDIO_AS_CTRL_ACT_ALT_SETTING:
+      return tud_audio_itf_active_alt_setting_get_request(rhport, request);
+    case AUDIO_AS_CTRL_VAL_ALT_SETTINGS:
+      return tud_audio_itf_valid_alt_setting_get_request(rhport, request);
+  }
+
+  return false;
+}
+
 bool tud_audio_set_itf_close_EP_cb(uint8_t rhport, tusb_control_request_t const * p_request)
 {
   (void)rhport;
@@ -447,9 +501,11 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
   uint8_t const itf = tu_u16_low(tu_le16toh(p_request->wIndex));
   uint8_t const alt = tu_u16_low(tu_le16toh(p_request->wValue));
 
-  if(itf == 2)
+  TU_VERIFY(itf < ITF_NUM_TOTAL);
+
+  if(itf == ITF_NUM_AUDIO_STREAMING_MIC)
   {
-    if(alt == 0)
+    if(alt == ALT_SETTING_MIC_ZERO_BANDWIDTH)
     {
       um_handle_pause(um_in_buffer);
     }
@@ -458,9 +514,9 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
       um_handle_dequeue(um_in_buffer, um_in_buffer->um_usb_packet_size);
     }
   }
-  else if (itf == 1)
+  else if (itf == ITF_NUM_AUDIO_STREAMING_SPK)
   {
-    if(alt == 0)
+    if(alt == ALT_SETTING_SPK_ZERO_BANDWIDTH)
     {
       FBCK_Stop();
     }
@@ -469,6 +525,8 @@ bool tud_audio_set_itf_cb(uint8_t rhport, tusb_control_request_t const * p_reque
       FBCK_Start();
     }
   }
+
+  active_alt_settings[itf] = alt;
 
   TU_LOG2("Set interface %d alt %d\r\n", itf, alt);
   return true;
